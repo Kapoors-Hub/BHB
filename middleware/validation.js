@@ -24,7 +24,7 @@ const validateHunterRegistration = (req, res, next) => {
     throw ErrorHandler.badRequest('Invalid email format');
   }
 
-  if (!mobileNumber.match(/^\+?\d{13}$/)) {
+  if (!mobileNumber.match(/^(\+\d{12}|\d{13})$/)) {
     throw ErrorHandler.badRequest('Invalid mobile number format');
   }
    if (!Array.isArray(questions) || questions.length === 0) {
