@@ -50,6 +50,21 @@ const hunterSchema = new mongoose.Schema({
     type: String,
     required: [true, 'State is required']
   },
+  username: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  password: {
+    type: String,
+    select: false  // Password won't be returned in queries
+  },
+  guild: {
+    type: String
+  },
+  placeOfResidence: {
+    type: String
+  },
   questions: [{
     question: {
       type: String,
@@ -69,6 +84,11 @@ const hunterSchema = new mongoose.Schema({
     code: String,
     expiresAt: Date
   },
+  // In Hunter model
+resetPasswordOtp: {
+    code: String,
+    expiresAt: Date
+},
   isVerified: {
     type: Boolean,
     default: false
