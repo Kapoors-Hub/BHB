@@ -1,3 +1,2 @@
-import app from "../server";
-
+const app =  require("../server")
 export default app;
