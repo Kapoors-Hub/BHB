@@ -10,6 +10,7 @@ router.get('/hunters/pending', validateAdmin, adminController.getPendingHunters)
 router.get('/hunters', validateAdmin, adminController.getAllHunters);
 router.put('/hunters/:hunterId/review', validateAdmin, adminController.reviewHunter);
 router.post('/hunters/:hunterId/send-otp', validateAdmin, adminController.sendOTP);
+router.delete('/hunters/:hunterId', validateAdmin, adminController.deleteHunter);
 
 module.exports = router;
 
