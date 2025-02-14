@@ -195,7 +195,38 @@ Bounty Hunter Platform Team`
                 error: error.message
             });
         }
+    },
+
+    // Get Hunter Single
+async getHunterById(req, res) {
+    const { hunterId } = req.params;
+
+    try {
+        const hunter = await Hunter.findById(hunterId);
+
+        if (!hunter) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'Hunter not found'
+            });
+        }
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Hunter fetched successfully',
+            data: hunter
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error fetching hunter details',
+            error: error.message
+        });
     }
+}
 };
 
 module.exports = adminController;
