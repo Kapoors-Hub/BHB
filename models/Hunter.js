@@ -75,6 +75,10 @@ const hunterSchema = new mongoose.Schema({
       required: true
     }
   }],
+  acceptedBounties: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Bounty'
+}],
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected', 'verified'],

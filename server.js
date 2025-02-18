@@ -4,6 +4,7 @@ const cors = require('cors');
 const connectDB = require('./config/database');
 const adminRoutes = require('./routes/adminRoutes');
 const hunterRoutes = require('./routes/hunterRoutes');
+const lordRoutes = require('./routes/lordRoutes')
 
 const app = express();
 
@@ -22,6 +23,7 @@ connectDB();
 // Routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/hunters', hunterRoutes);
+app.use('/api/lords', lordRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

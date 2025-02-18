@@ -20,6 +20,10 @@ const lordSchema = new mongoose.Schema({
         required: [true, 'Password is required'],
         select: false
     },
+    bounties: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Bounty'
+    }],
     resetPasswordOtp: {
         code: String,
         expiresAt: Date

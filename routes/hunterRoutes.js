@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const hunterController = require('../controllers/hunterController');
+const hunterBountyController = require('../controllers/hunterBountyController')
 const { validateHunterRegistration } = require('../middleware/validation');
 const { validateHunterToken } = require('../middleware/hunterAuth');
 
@@ -16,5 +17,11 @@ router.post('/forgot-password', hunterController.forgotPassword);
 router.post('/reset-password', hunterController.resetPassword);
 router.post('/resend-reset-otp', hunterController.resendForgotPasswordOTP);
 router.post('/resend-otp', hunterController.resendOTP);
+
+// Bounty routes for hunters
+router.get('/bounties', validateHunterToken, hunterBountyController.getAvailableBounties);
+router.get('/bounties/my', validateHunterToken, hunterBountyController.getMyBounties);
+router.get('/bounties/:bountyId', validateHunterToken, hunterBountyController.getBountyDetails);
+router.post('/bounties/:bountyId/accept', validateHunterToken, hunterBountyController.acceptBounty);
 
 module.exports = router;
