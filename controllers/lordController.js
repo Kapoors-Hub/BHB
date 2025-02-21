@@ -38,7 +38,7 @@ const lordController = {
     
             // Validate mobile number format
             if (mobileNumber) {
-                // Validate mobile number format (adjust regex as needed)
+                // Validate mobile number format 
                 const mobileRegex = /^(\+\d{12}|\d{13})$/;
                 if (!mobileRegex.test(mobileNumber)) {
                     return res.status(400).json({
@@ -254,6 +254,155 @@ const lordController = {
                 status: 500,
                 success: false,
                 message: 'Error during logout',
+                error: error.message
+            });
+        }
+    },
+
+    //Get Lord
+    async getLordProfile(req, res) {
+        try {
+            const lordId = req.lord.id;
+            
+            const lord = await Lord.findById(lordId)
+                .select('-password')
+                .populate('bounties', 'title status startTime endTime');
+                
+            if (!lord) {
+                return res.status(404).json({
+                    status: 404,
+                    success: false,
+                    message: 'Lord not found'
+                });
+            }
+            
+            return res.status(200).json({
+                status: 200,
+                success: true,
+                message: 'Lord profile retrieved successfully',
+                data: lord
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500,
+                success: false,
+                message: 'Error retrieving profile',
+                error: error.message
+            });
+        }
+    },
+
+    async updateLordProfile(req, res) {
+        try {
+            const lordId = req.lord.id;
+            const { username, email, mobileNumber, currentPassword, newPassword } = req.body;
+            
+            // Find lord with password
+            const lord = await Lord.findById(lordId).select('+password');
+            
+            if (!lord) {
+                return res.status(404).json({
+                    status: 404,
+                    success: false,
+                    message: 'Lord not found'
+                });
+            }
+            
+            // Update fields
+            let updateData = {};
+            
+            // Check if username is being updated
+            if (username && username !== lord.username) {
+                // Check if username is already taken
+                const existingUsername = await Lord.findOne({ username });
+                if (existingUsername) {
+                    return res.status(400).json({
+                        status: 400,
+                        success: false,
+                        message: 'Username already taken'
+                    });
+                }
+                updateData.username = username;
+            }
+            
+            // Check if email is being updated
+            if (email && email !== lord.email) {
+                // Check if email is already registered
+                const existingEmail = await Lord.findOne({ email });
+                if (existingEmail) {
+                    return res.status(400).json({
+                        status: 400,
+                        success: false,
+                        message: 'Email already registered'
+                    });
+                }
+                updateData.email = email;
+            }
+            
+            // Check if mobile number is being updated
+            if (mobileNumber && mobileNumber !== lord.mobileNumber) {
+                // Validate mobile number format
+                const mobileRegex = /^(\+\d{1,3}[- ]?)?\d{10,12}$/;
+                if (!mobileRegex.test(mobileNumber)) {
+                    return res.status(400).json({
+                        status: 400,
+                        success: false,
+                        message: 'Invalid mobile number format'
+                    });
+                }
+                
+                // Check if mobile number is already registered
+                const existingMobile = await Lord.findOne({ mobileNumber });
+                if (existingMobile) {
+                    return res.status(400).json({
+                        status: 400,
+                        success: false,
+                        message: 'Mobile number already registered'
+                    });
+                }
+                updateData.mobileNumber = mobileNumber;
+            }
+            
+            // Handle password update if provided
+            if (newPassword && currentPassword) {
+                // Verify current password
+                const isPasswordValid = await bcrypt.compare(currentPassword, lord.password);
+                if (!isPasswordValid) {
+                    return res.status(401).json({
+                        status: 401,
+                        success: false,
+                        message: 'Current password is incorrect'
+                    });
+                }
+                
+                // Hash new password
+                updateData.password = await bcrypt.hash(newPassword, 10);
+            } else if (newPassword && !currentPassword) {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    message: 'Current password is required to update password'
+                });
+            }
+            
+            // Update lord profile
+            const updatedLord = await Lord.findByIdAndUpdate(
+                lordId,
+                updateData,
+                { new: true }
+            ).select('-password');
+            
+            return res.status(200).json({
+                status: 200,
+                success: true,
+                message: 'Profile updated successfully',
+                data: updatedLord
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500,
+                success: false,
+                message: 'Error updating profile',
                 error: error.message
             });
         }

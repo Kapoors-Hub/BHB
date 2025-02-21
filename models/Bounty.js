@@ -11,6 +11,14 @@ const bountySchema = new mongoose.Schema({
         type: String,
         required: [true, 'Context is required']
     },
+    deliverables: {
+        type: String,
+        required: [true, 'Deliverables is required']
+    },
+    challenge: {
+        type: String,
+        required: [true, 'Challenge is required']
+    },
     startTime: {
         type: Date,
         required: [true, 'Start time is required']

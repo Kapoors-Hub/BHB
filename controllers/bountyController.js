@@ -8,6 +8,8 @@ const bountyController = {
             const {
                 title,
                 context,
+                deliverables,
+                challenge,
                 startTime,
                 endTime,
                 resultTime,
@@ -55,6 +57,8 @@ const bountyController = {
             const bounty = await Bounty.create({
                 title,
                 context,
+                deliverables,
+                challenge,
                 startTime,
                 endTime,
                 resultTime,

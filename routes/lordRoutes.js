@@ -10,6 +10,8 @@ router.post('/login', lordController.login);
 router.post('/forgot-password', lordController.forgotPassword);
 router.post('/reset-password', lordController.resetPassword);
 router.get('/logout', validateLordToken, lordController.logout);
+router.get('/profile', validateLordToken, lordController.getLordProfile);
+router.put('/profile/update', validateLordToken, lordController.updateLordProfile)
 
 // Bounty routes (protected by validateLordToken)
 router.post('/bounties', validateLordToken, bountyController.createBounty);
