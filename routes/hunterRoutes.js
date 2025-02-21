@@ -25,5 +25,6 @@ router.get('/bounties/my', validateHunterToken, hunterBountyController.getMyBoun
 router.get('/bounties/:bountyId', validateHunterToken, hunterBountyController.getBountyDetails);
 router.post('/bounties/:bountyId/accept', validateHunterToken, hunterBountyController.acceptBounty);
 router.post('/bounties/:bountyId/submit',validateHunterToken,upload.array('files', 5), hunterBountyController.submitBountyWork);
+router.get('/bounties/:bountyId/score', validateHunterToken, hunterBountyController.getMyScore);
 
 module.exports = router;

@@ -253,7 +253,174 @@ const bountyController = {
                 error: error.message
             });
         }
+    },
+
+    // Get bounty submissions
+    async getBountySubmissions(req, res) {
+        try {
+            const { bountyId } = req.params;
+            const lordId = req.lord.id;
+    
+            const bounty = await Bounty.findOne({
+                _id: bountyId,
+                createdBy: lordId
+            }).populate('participants.hunter', 'username name email');
+    
+            if (!bounty) {
+                return res.status(404).json({
+                    status: 404,
+                    success: false,
+                    message: 'Bounty not found or you do not have permission'
+                });
+            }
+    
+            // Filter only participants who have submitted
+            const submissions = bounty.participants.filter(
+                participant => participant.submission && participant.submission.submittedAt
+            );
+    
+            return res.status(200).json({
+                status: 200,
+                success: true,
+                message: 'Submissions retrieved successfully',
+                data: {
+                    bountyTitle: bounty.title,
+                    totalSubmissions: submissions.length,
+                    submissions
+                }
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500,
+                success: false,
+                message: 'Error retrieving submissions',
+                error: error.message
+            });
+        }
+    },
+
+    // Review Submission
+    async reviewSubmission(req, res) {
+        try {
+            const { bountyId, hunterId } = req.params;
+            const lordId = req.lord.id;
+            const {
+                adherenceToBrief,
+                conceptualThinking,
+                technicalExecution,
+                originalityCreativity,
+                documentation,
+                feedback
+            } = req.body;
+    
+            // Validate scores
+            const scores = [
+                adherenceToBrief,
+                conceptualThinking,
+                technicalExecution,
+                originalityCreativity,
+                documentation
+            ];
+    
+            for (const score of scores) {
+                if (score < 0 || score > 5 || !Number.isInteger(score)) {
+                    return res.status(400).json({
+                        status: 400,
+                        success: false,
+                        message: 'Each score must be an integer between 0 and 5'
+                    });
+                }
+            }
+    
+            // Calculate total score
+            const totalScore = scores.reduce((sum, score) => sum + score, 0);
+    
+            // Check if bounty exists and belongs to the lord
+            const bounty = await Bounty.findOne({
+                _id: bountyId,
+                createdBy: lordId
+            });
+    
+            if (!bounty) {
+                return res.status(404).json({
+                    status: 404,
+                    success: false,
+                    message: 'Bounty not found or you do not have permission'
+                });
+            }
+    
+            // Find participant
+            const participantIndex = bounty.participants.findIndex(
+                p => p.hunter.toString() === hunterId
+            );
+    
+            if (participantIndex === -1) {
+                return res.status(404).json({
+                    status: 404,
+                    success: false,
+                    message: 'Hunter not found in this bounty'
+                });
+            }
+    
+            const participant = bounty.participants[participantIndex];
+    
+            // Check if participant has submitted
+            if (!participant.submission || !participant.submission.submittedAt) {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    message: 'Hunter has not submitted any work yet'
+                });
+            }
+    
+            // Update the submission with review
+            await Bounty.updateOne(
+                { 
+                    _id: bountyId,
+                    'participants.hunter': hunterId
+                },
+                {
+                    $set: {
+                        'participants.$.submission.review': {
+                            adherenceToBrief,
+                            conceptualThinking,
+                            technicalExecution,
+                            originalityCreativity,
+                            documentation,
+                            totalScore,
+                            feedback,
+                            reviewedAt: new Date(),
+                            reviewedBy: lordId
+                        }
+                    }
+                }
+            );
+    
+            return res.status(200).json({
+                status: 200,
+                success: true,
+                message: 'Submission reviewed successfully',
+                data: {
+                    totalScore,
+                    scores: {
+                        adherenceToBrief,
+                        conceptualThinking,
+                        technicalExecution,
+                        originalityCreativity,
+                        documentation
+                    }
+                }
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500,
+                success: false,
+                message: 'Error reviewing submission',
+                error: error.message
+            });
+        }
     }
+    
 };
 
 module.exports = bountyController;

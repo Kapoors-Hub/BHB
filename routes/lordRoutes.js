@@ -19,5 +19,8 @@ router.get('/bounties', validateLordToken, bountyController.getLordBounties);
 router.get('/bounties/:bountyId', validateLordToken, bountyController.getBountyById);
 router.put('/bounties/:bountyId', validateLordToken, bountyController.updateBounty);
 router.delete('/bounties/:bountyId', validateLordToken, bountyController.deleteBounty);
+router.get('/bounties/:bountyId/submissions', validateLordToken, bountyController.getBountySubmissions);
+router.post('/bounties/:bountyId/review/:hunterId', validateLordToken, bountyController.reviewSubmission);
 
 module.exports = router;
+

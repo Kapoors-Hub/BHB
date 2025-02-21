@@ -99,7 +99,45 @@ const bountySchema = new mongoose.Schema({
                 filePath: String,
                 uploadedAt: Date
             }],
-            submittedAt: Date
+            submittedAt: Date,
+            review: {
+                adherenceToBrief: {
+                    type: Number,
+                    min: 0,
+                    max: 5
+                },
+                conceptualThinking: {
+                    type: Number,
+                    min: 0,
+                    max: 5
+                },
+                technicalExecution: {
+                    type: Number,
+                    min: 0,
+                    max: 5
+                },
+                originalityCreativity: {
+                    type: Number,
+                    min: 0,
+                    max: 5
+                },
+                documentation: {
+                    type: Number,
+                    min: 0,
+                    max: 5
+                },
+                totalScore: {
+                    type: Number,
+                    min: 0,
+                    max: 25
+                },
+                feedback: String,
+                reviewedAt: Date,
+                reviewedBy: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: 'Lord'
+                }
+            }
         }
     }],
     status: {

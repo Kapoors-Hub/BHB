@@ -65,6 +65,10 @@ const hunterSchema = new mongoose.Schema({
   placeOfResidence: {
     type: String
   },
+  xp: {
+    type: Number,
+    default: 375
+  },
   questions: [{
     question: {
       type: String,
