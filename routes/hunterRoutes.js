@@ -5,6 +5,7 @@ const hunterController = require('../controllers/hunterController');
 const hunterBountyController = require('../controllers/hunterBountyController')
 const { validateHunterRegistration } = require('../middleware/validation');
 const { validateHunterToken } = require('../middleware/hunterAuth');
+const upload = require('../config/multer');
 
 router.post('/register', validateHunterRegistration, hunterController.register);
 router.post('/verify-otp', hunterController.verifyOTP);
@@ -23,5 +24,6 @@ router.get('/bounties', validateHunterToken, hunterBountyController.getAvailable
 router.get('/bounties/my', validateHunterToken, hunterBountyController.getMyBounties);
 router.get('/bounties/:bountyId', validateHunterToken, hunterBountyController.getBountyDetails);
 router.post('/bounties/:bountyId/accept', validateHunterToken, hunterBountyController.acceptBounty);
+router.post('/bounties/:bountyId/submit',validateHunterToken,upload.array('files', 5), hunterBountyController.submitBountyWork);
 
 module.exports = router;

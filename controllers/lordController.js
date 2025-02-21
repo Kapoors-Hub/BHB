@@ -6,40 +6,67 @@ const transporter = require('../config/mailer');
 const lordController = {
     // Register new lord
     async register(req, res) {
-        const { username, email, password } = req.body;
-
+        const { username, email, password, mobileNumber } = req.body;
+    
         try {
-            // Check if username or email already exists
+            // Check if username, email, or mobile number already exists
             const existingLord = await Lord.findOne({
-                $or: [{ username }, { email }]
+                $or: [{ username }, { email }, { mobileNumber }]
             });
-
+    
             if (existingLord) {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: existingLord.username === username ? 
-                        'Username already taken' : 'Email already registered'
-                });
+                if (existingLord.username === username) {
+                    return res.status(400).json({
+                        status: 400,
+                        success: false,
+                        message: 'Username already taken'
+                    });
+                } else if (existingLord.email === email) {
+                    return res.status(400).json({
+                        status: 400,
+                        success: false,
+                        message: 'Email already registered'
+                    });
+                } else if (existingLord.mobileNumber === mobileNumber) {
+                    return res.status(400).json({
+                        status: 400,
+                        success: false,
+                        message: 'Mobile number already registered'
+                    });
+                }
             }
-
+    
+            // Validate mobile number format
+            if (mobileNumber) {
+                // Validate mobile number format (adjust regex as needed)
+                const mobileRegex = /^(\+\d{12}|\d{13})$/;
+                if (!mobileRegex.test(mobileNumber)) {
+                    return res.status(400).json({
+                        status: 400,
+                        success: false,
+                        message: 'Invalid mobile number format'
+                    });
+                }
+            }
+    
             // Create new lord
             const lord = await Lord.create({
                 username,
                 email,
-                password
+                password,
+                mobileNumber
             });
-
+    
             // Generate token
             const token = jwt.sign(
                 { id: lord._id, role: 'lord' },
                 process.env.JWT_SECRET,
                 { expiresIn: '1d' }
             );
-
+    
             // Remove password from response
             lord.password = undefined;
-
+    
             return res.status(201).json({
                 status: 201,
                 success: true,
@@ -58,7 +85,6 @@ const lordController = {
             });
         }
     },
-
     // Lord login
     async login(req, res) {
         const { emailOrUsername, password } = req.body;

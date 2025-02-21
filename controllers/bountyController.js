@@ -17,14 +17,14 @@ const bountyController = {
                 rewardPrize,
                 maxHunters
             } = req.body;
-
+     
             // Validate dates
             const currentDate = new Date();
             const startDate = new Date(startTime);
             const endDate = new Date(endTime);
             const resultDate = new Date(resultTime);
             const doubtDate = new Date(doubtSessionDate);
-
+     
             if (startDate < currentDate) {
                 return res.status(400).json({
                     status: 400,
@@ -32,7 +32,7 @@ const bountyController = {
                     message: 'Start time cannot be in the past'
                 });
             }
-
+     
             if (endDate <= startDate) {
                 return res.status(400).json({
                     status: 400,
@@ -40,7 +40,7 @@ const bountyController = {
                     message: 'End time must be after start time'
                 });
             }
-
+     
             if (resultDate <= endDate) {
                 return res.status(400).json({
                     status: 400,
@@ -48,18 +48,31 @@ const bountyController = {
                     message: 'Result time must be after end time'
                 });
             }
-
+     
+            // Set initial status based on start time
+            const initialStatus = currentDate >= startDate ? 'active' : 'draft';
+     
             const bounty = await Bounty.create({
-                ...req.body,
+                title,
+                context,
+                startTime,
+                endTime,
+                resultTime,
+                doubtSessionTime,
+                doubtSessionDate,
+                doubtSessionLink,
+                rewardPrize,
+                maxHunters,
+                status: initialStatus,
                 createdBy: req.lord.id
             });
-
+     
             await Lord.findByIdAndUpdate(
                 req.lord.id,
                 { $push: { bounties: bounty._id } },
                 { new: true }
             );
-
+     
             return res.status(201).json({
                 status: 201,
                 success: true,
@@ -74,7 +87,7 @@ const bountyController = {
                 error: error.message
             });
         }
-    },
+     },
 
     // Get all bounties created by a lord
     async getLordBounties(req, res) {
