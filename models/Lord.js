@@ -1,12 +1,72 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+const bankAccountSchema = new mongoose.Schema({
+    accountHolderName: {
+        type: String,
+        required: [true, 'Account holder name is required']
+    },
+    ifscNumber: {
+        type: String,
+        required: [true, 'IFSC number is required']
+    },
+    accountNumber: {
+        type: String,
+        required: [true, 'Account number is required'],
+        unique: true
+    },
+    firstName: {
+        type: String,
+        required: [true, 'First name is required']
+    },
+    lastName: {
+        type: String,
+        required: [true, 'Last name is required']
+    },
+    address: {
+        type: String,
+        required: [true, 'Address is required']
+    },
+    city: {
+        type: String,
+        required: [true, 'City is required']
+    },
+    postalCode: {
+        type: String,
+        required: [true, 'Postal code is required']
+    },
+    country: {
+        type: String,
+        required: [true, 'Country is required']
+    },
+    phoneNumber: {
+        type: String,
+        required: [true, 'Phone number is required']
+    },
+    isDefault: {
+        type: Boolean,
+        default: false
+    },
+    addedAt: {
+        type: Date,
+        default: Date.now
+    }
+});
+
 const lordSchema = new mongoose.Schema({
     username: {
         type: String,
         required: [true, 'Username is required'],
         unique: true,
         trim: true
+    },
+    firstName: {
+        type: String,
+        required: [true, 'First name is required']
+    },
+    lastName: {
+        type: String,
+        required: [true, 'Last name is required']
     },
     email: {
         type: String,
@@ -33,6 +93,7 @@ const lordSchema = new mongoose.Schema({
         code: String,
         expiresAt: Date
     },
+    bankAccounts: [bankAccountSchema],
     createdAt: {
         type: Date,
         default: Date.now

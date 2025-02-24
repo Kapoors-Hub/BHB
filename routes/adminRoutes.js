@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const badgeController = require('../controllers/badgeController');
 const { validateAdmin } = require('../middleware/auth');
 
 router.post('/login', adminController.login);
@@ -12,6 +13,11 @@ router.get('/hunters/:hunterId', validateAdmin, adminController.getHunterById);
 router.put('/hunters/:hunterId/review', validateAdmin, adminController.reviewHunter);
 router.post('/hunters/:hunterId/send-otp', validateAdmin, adminController.sendOTP);
 router.delete('/hunters/:hunterId', validateAdmin, adminController.deleteHunter);
+
+// Badges
+// routes/adminRoutes.js
+router.post('/badges', validateAdmin, badgeController.createBadge);
+router.put('/badges/:badgeId', validateAdmin, badgeController.updateBadge);
 
 module.exports = router;
 

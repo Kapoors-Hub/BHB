@@ -71,16 +71,44 @@ const hunterSchema = new mongoose.Schema({
   },
   level: {
     tier: {
-        type: String,
-        enum: ['Bronze', 'Silver', 'Gold'],
-        default: 'Bronze'
+      type: String,
+      enum: ['Bronze', 'Silver', 'Gold'],
+      default: 'Bronze'
     },
     rank: {
-        type: String,
-        enum: ['Novice', 'Specialist', 'Master'],
-        default: 'Novice'
+      type: String,
+      enum: ['Novice', 'Specialist', 'Master'],
+      default: 'Novice'
     }
-},
+  },
+  badges: [{
+    badge: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Badge'
+    },
+    earnedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  achievements: {
+    bountiesWon: {
+      count: { type: Number, default: 0 },
+      bountyIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Bounty' }]
+    },
+    lastPlaceFinishes: {
+      count: { type: Number, default: 0 },
+      bountyIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Bounty' }]
+    },
+    firstSubmissions: {
+      count: { type: Number, default: 0 },
+      bountyIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Bounty' }]
+    },
+    nonProfitBounties: {
+      count: { type: Number, default: 0 },
+      bountyIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Bounty' }]
+    }
+  },
   questions: [{
     question: {
       type: String,
@@ -94,7 +122,7 @@ const hunterSchema = new mongoose.Schema({
   acceptedBounties: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Bounty'
-}],
+  }],
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected', 'verified'],
@@ -105,10 +133,10 @@ const hunterSchema = new mongoose.Schema({
     expiresAt: Date
   },
   // In Hunter model
-resetPasswordOtp: {
+  resetPasswordOtp: {
     code: String,
     expiresAt: Date
-},
+  },
   isVerified: {
     type: Boolean,
     default: false
@@ -137,7 +165,7 @@ resetPasswordOtp: {
 //   if (xp < BRONZE_MAX) {
 //       tier = 'Bronze';
 //       const tierProgress = xp / BRONZE_MAX;
-      
+
 //       if (tierProgress < SPECIALIST_THRESHOLD) rank = 'Novice';
 //       else if (tierProgress < MASTER_THRESHOLD) rank = 'Specialist';
 //       else rank = 'Master';
@@ -145,7 +173,7 @@ resetPasswordOtp: {
 //   else if (xp < SILVER_MAX) {
 //       tier = 'Silver';
 //       const tierProgress = (xp - BRONZE_MAX) / (SILVER_MAX - BRONZE_MAX);
-      
+
 //       if (tierProgress < SPECIALIST_THRESHOLD) rank = 'Novice';
 //       else if (tierProgress < MASTER_THRESHOLD) rank = 'Specialist';
 //       else rank = 'Master';
@@ -153,7 +181,7 @@ resetPasswordOtp: {
 //   else {
 //       tier = 'Gold';
 //       const tierProgress = (xp - SILVER_MAX) / (GOLD_MAX - SILVER_MAX);
-      
+
 //       if (tierProgress < SPECIALIST_THRESHOLD) rank = 'Novice';
 //       else if (tierProgress < MASTER_THRESHOLD) rank = 'Specialist';
 //       else rank = 'Master';
@@ -163,39 +191,39 @@ resetPasswordOtp: {
 //   this.level.rank = rank;
 // };
 
-hunterSchema.methods.updateLevel = function() {
+hunterSchema.methods.updateLevel = function () {
   const xp = this.xp;
   let tier, rank;
 
   // Bronze Tier (0-18k)
   if (xp < 18000) {
-      tier = 'Bronze';
-      if (xp < 6000) rank = 'Novice';
-      else if (xp < 12000) rank = 'Specialist';
-      else rank = 'Master';
+    tier = 'Bronze';
+    if (xp < 6000) rank = 'Novice';
+    else if (xp < 12000) rank = 'Specialist';
+    else rank = 'Master';
   }
   // Silver Tier (18k-42k)
   else if (xp < 42000) {
-      tier = 'Silver';
-      if (xp < 26000) rank = 'Novice';
-      else if (xp < 34000) rank = 'Specialist';
-      else rank = 'Master';
+    tier = 'Silver';
+    if (xp < 26000) rank = 'Novice';
+    else if (xp < 34000) rank = 'Specialist';
+    else rank = 'Master';
   }
   // Gold Tier (42k-72k)
   else {
-      tier = 'Gold';
-      if (xp < 52000) rank = 'Novice';
-      else if (xp < 62000) rank = 'Specialist';
-      else rank = 'Master';
+    tier = 'Gold';
+    if (xp < 52000) rank = 'Novice';
+    else if (xp < 62000) rank = 'Specialist';
+    else rank = 'Master';
   }
 
   this.level.tier = tier;
   this.level.rank = rank;
 };
 
-hunterSchema.pre('save', function(next) {
+hunterSchema.pre('save', function (next) {
   if (this.isModified('xp')) {
-      this.updateLevel();
+    this.updateLevel();
   }
   next();
 });

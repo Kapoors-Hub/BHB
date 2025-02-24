@@ -6,7 +6,7 @@ const transporter = require('../config/mailer');
 const lordController = {
     // Register new lord
     async register(req, res) {
-        const { username, email, password, mobileNumber } = req.body;
+        const { username, email, password, mobileNumber, firstName, lastName } = req.body;
     
         try {
             // Check if username, email, or mobile number already exists
@@ -54,7 +54,9 @@ const lordController = {
                 username,
                 email,
                 password,
-                mobileNumber
+                mobileNumber,
+                firstName,
+                lastName
             });
     
             // Generate token
@@ -406,7 +408,194 @@ const lordController = {
                 error: error.message
             });
         }
+    },
+
+    // Add bank account
+async addBankAccount(req, res) {
+    try {
+        const lordId = req.lord.id;
+        const bankDetails = req.body;
+
+        // Check if account number already exists
+        const existingAccount = await Lord.findOne({
+            'bankAccounts.accountNumber': bankDetails.accountNumber
+        });
+
+        if (existingAccount) {
+            return res.status(400).json({
+                status: 400,
+                success: false,
+                message: 'Account number already exists'
+            });
+        }
+
+        // If this is the first account, make it default
+        const lord = await Lord.findById(lordId);
+        if (lord.bankAccounts.length === 0) {
+            bankDetails.isDefault = true;
+        }
+
+        // Add new bank account
+        const updatedLord = await Lord.findByIdAndUpdate(
+            lordId,
+            { $push: { bankAccounts: bankDetails } },
+            { new: true }
+        ).select('-password');
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Bank account added successfully',
+            data: updatedLord.bankAccounts
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error adding bank account',
+            error: error.message
+        });
     }
+},
+
+// Get all bank accounts
+async getBankAccounts(req, res) {
+    try {
+        const lordId = req.lord.id;
+        
+        const lord = await Lord.findById(lordId)
+            .select('bankAccounts');
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Bank accounts retrieved successfully',
+            data: lord.bankAccounts
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error retrieving bank accounts',
+            error: error.message
+        });
+    }
+},
+
+// Update bank account
+async updateBankAccount(req, res) {
+    try {
+        const lordId = req.lord.id;
+        const { accountId } = req.params;
+        const updates = req.body;
+
+        // Check if account exists
+        const lord = await Lord.findById(lordId);
+        const accountExists = lord.bankAccounts.id(accountId);
+
+        if (!accountExists) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'Bank account not found'
+            });
+        }
+
+        // Update account
+        const updatedLord = await Lord.findOneAndUpdate(
+            { 
+                _id: lordId,
+                'bankAccounts._id': accountId 
+            },
+            { 
+                $set: {
+                    'bankAccounts.$': { ...accountExists.toObject(), ...updates }
+                }
+            },
+            { new: true }
+        ).select('-password');
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Bank account updated successfully',
+            data: updatedLord.bankAccounts
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error updating bank account',
+            error: error.message
+        });
+    }
+},
+
+// Delete bank account
+async deleteBankAccount(req, res) {
+    try {
+        const lordId = req.lord.id;
+        const { accountId } = req.params;
+
+        const updatedLord = await Lord.findByIdAndUpdate(
+            lordId,
+            { $pull: { bankAccounts: { _id: accountId } } },
+            { new: true }
+        ).select('-password');
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Bank account deleted successfully',
+            data: updatedLord.bankAccounts
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error deleting bank account',
+            error: error.message
+        });
+    }
+},
+
+// Set default bank account
+async setDefaultBankAccount(req, res) {
+    try {
+        const lordId = req.lord.id;
+        const { accountId } = req.params;
+
+        // First, remove default from all accounts
+        await Lord.updateOne(
+            { _id: lordId },
+            { $set: { "bankAccounts.$[].isDefault": false } }
+        );
+
+        // Set new default account
+        const updatedLord = await Lord.findOneAndUpdate(
+            { 
+                _id: lordId,
+                'bankAccounts._id': accountId 
+            },
+            { $set: { 'bankAccounts.$.isDefault': true } },
+            { new: true }
+        ).select('-password');
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Default bank account updated successfully',
+            data: updatedLord.bankAccounts
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error setting default bank account',
+            error: error.message
+        });
+    }
+}
 };
 
 module.exports = lordController;

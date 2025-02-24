@@ -21,6 +21,14 @@ router.put('/bounties/:bountyId', validateLordToken, bountyController.updateBoun
 router.delete('/bounties/:bountyId', validateLordToken, bountyController.deleteBounty);
 router.get('/bounties/:bountyId/submissions', validateLordToken, bountyController.getBountySubmissions);
 router.post('/bounties/:bountyId/review/:hunterId', validateLordToken, bountyController.reviewSubmission);
+router.post('/bounties/:bountyId/result', validateLordToken, bountyController.postBountyResult);
 
+// Bank Details
+// routes/lordRoutes.js
+router.post('/bank-accounts', validateLordToken, lordController.addBankAccount);
+router.get('/bank-accounts', validateLordToken, lordController.getBankAccounts);
+router.put('/bank-accounts/:accountId', validateLordToken, lordController.updateBankAccount);
+router.delete('/bank-accounts/:accountId', validateLordToken, lordController.deleteBankAccount);
+router.put('/bank-accounts/:accountId/set-default', validateLordToken, lordController.setDefaultBankAccount);
 module.exports = router;
 

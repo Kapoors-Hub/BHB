@@ -301,83 +301,32 @@ const bountyController = {
     },
 
     // Review Submission
-    // Update reviewSubmission method in bountyController.js
     async reviewSubmission(req, res) {
         try {
             const { bountyId, hunterId } = req.params;
             const lordId = req.lord.id;
-            const {
-                adherenceToBrief,
-                conceptualThinking,
-                technicalExecution,
-                originalityCreativity,
-                documentation,
-                feedback
-            } = req.body;
-
-            // Validate scores
-            const scores = [
-                adherenceToBrief,
-                conceptualThinking,
-                technicalExecution,
-                originalityCreativity,
-                documentation
-            ];
-
-            for (const score of scores) {
-                if (score < 0 || score > 5 || !Number.isInteger(score)) {
-                    return res.status(400).json({
-                        status: 400,
-                        success: false,
-                        message: 'Each score must be an integer between 0 and 5'
-                    });
-                }
-            }
-
-            // Calculate total score
-            const totalScore = scores.reduce((sum, score) => sum + score, 0);
-
-            // Check if bounty exists and belongs to the lord
+    
+            // Check if result date has passed
             const bounty = await Bounty.findOne({
                 _id: bountyId,
                 createdBy: lordId
-            });
-
-            if (!bounty) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Bounty not found or you do not have permission'
-                });
-            }
-
-            // Find participant
-            const participantIndex = bounty.participants.findIndex(
-                p => p.hunter.toString() === hunterId
-            );
-
-            if (participantIndex === -1) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Hunter not found in this bounty'
-                });
-            }
-
-            const participant = bounty.participants[participantIndex];
-
-            // Check if participant has submitted
-            if (!participant.submission || !participant.submission.submittedAt) {
+            }).populate('participants.hunter');
+    
+            const currentDate = new Date();
+            if (currentDate > bounty.resultTime) {
                 return res.status(400).json({
                     status: 400,
                     success: false,
-                    message: 'Hunter has not submitted any work yet'
+                    message: 'Cannot review after result date has passed'
                 });
             }
-
-            // Update the submission with review
-            await Bounty.updateOne(
-                {
+    
+            // Calculate total score
+            const totalScore = scores.reduce((sum, score) => sum + score, 0);
+    
+            // Update submission with review
+            await Bounty.findOneAndUpdate(
+                { 
                     _id: bountyId,
                     'participants.hunter': hunterId
                 },
@@ -397,67 +346,129 @@ const bountyController = {
                     }
                 }
             );
-
-            // Calculate XP changes based on scores
-            let xpChange = 0;
-
-            // For each parameter:
-            // - If score is above 2.5, add score*100 XP
-            // - If score is below 2.5, subtract (5-score)*100 XP
-            scores.forEach(score => {
-                if (score >= 3) {
-                    xpChange += score * 100;
-                } else if (score <= 2) {
-                    xpChange -= (3 - score) * 100;
+    
+            // Get all reviewed submissions and determine current winner
+            const updatedBounty = await Bounty.findById(bountyId)
+                .populate('participants.hunter');
+    
+            const reviewedParticipants = updatedBounty.participants.filter(
+                p => p.submission && p.submission.review
+            );
+    
+            // Sort reviewed participants by score
+            const sortedParticipants = reviewedParticipants.sort(
+                (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
+            );
+    
+            // Current leader is the highest scored among reviewed submissions
+            const currentLeader = sortedParticipants[0];
+            const lastPlace = sortedParticipants[sortedParticipants.length - 1];
+    
+            // Update achievements only if it's the current leader
+            if (currentLeader && currentLeader.hunter._id.toString() === hunterId) {
+                await Hunter.findByIdAndUpdate(
+                    hunterId,
+                    {
+                        $inc: { 'achievements.bountiesWon.count': 1 },
+                        $push: { 'achievements.bountiesWon.bountyIds': bountyId }
+                    }
+                );
+                await checkAndAwardBadges(hunterId);
+            }
+    
+            // Update last place achievement
+            if (lastPlace && lastPlace.hunter._id.toString() === hunterId) {
+                await Hunter.findByIdAndUpdate(
+                    lastPlace.hunter._id,
+                    {
+                        $inc: { 'achievements.lastPlaceFinishes.count': 1 },
+                        $push: { 'achievements.lastPlaceFinishes.bountyIds': bountyId }
+                    }
+                );
+                await checkAndAwardBadges(lastPlace.hunter._id);
+            }
+    
+            return res.status(200).json({
+                status: 200,
+                success: true,
+                message: 'Submission reviewed successfully',
+                data: {
+                    totalScore,
+                    reviewedCount: reviewedParticipants.length,
+                    totalParticipants: bounty.participants.length,
+                    currentLeader: {
+                        hunter: currentLeader.hunter.username,
+                        score: currentLeader.submission.review.totalScore
+                    },
+                    isCurrentLeader: currentLeader.hunter._id.toString() === hunterId
                 }
             });
-
-            // Update hunter's XP
-            const hunter = await Hunter.findById(hunterId);
-            if (hunter) {
-                const oldLevel = {
-                    tier: hunter.level.tier,
-                    rank: hunter.level.rank
-                };
-
-                hunter.xp += xpChange;
-                await hunter.save();  // This will trigger the level update automatically
-
-                // Check if level changed
-                const levelChanged = oldLevel.tier !== hunter.level.tier ||
-                    oldLevel.rank !== hunter.level.rank;
-
-                return res.status(200).json({
-                    status: 200,
-                    success: true,
-                    message: 'Submission reviewed successfully',
-                    data: {
-                        totalScore,
-                        scores: {
-                            adherenceToBrief,
-                            conceptualThinking,
-                            technicalExecution,
-                            originalityCreativity,
-                            documentation
-                        },
-                        xpChanged: xpChange,
-                        newTotalXp: hunter.xp,
-                        level: {
-                            current: {
-                                tier: hunter.level.tier,
-                                rank: hunter.level.rank
-                            },
-                            changed: levelChanged,
-                            previous: levelChanged ? oldLevel : null
-                        }
-                    }
-                });
-            }
+    
         } catch (error) {
             return res.status(500).json({
                 status: 500,
                 success: false,
                 message: 'Error reviewing submission',
+                error: error.message
+            });
+        }
+    },
+
+    async postBountyResult(req, res) {
+        try {
+            const { bountyId } = req.params;
+            const lordId = req.lord.id;
+    
+            const bounty = await Bounty.findOne({
+                _id: bountyId,
+                createdBy: lordId
+            }).populate('participants.hunter');
+    
+            // Check if result date has reached
+            const currentDate = new Date();
+            if (currentDate < bounty.resultTime) {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    message: 'Cannot post result before result date'
+                });
+            }
+    
+            // Get reviewed submissions
+            const reviewedParticipants = bounty.participants.filter(
+                p => p.submission && p.submission.review
+            );
+    
+            // Sort by score
+            const sortedParticipants = reviewedParticipants.sort(
+                (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
+            );
+    
+            // Update bounty status to completed
+            bounty.status = 'completed';
+            await bounty.save();
+    
+            return res.status(200).json({
+                status: 200,
+                success: true,
+                message: 'Bounty result posted successfully',
+                data: {
+                    bountyTitle: bounty.title,
+                    totalParticipants: bounty.participants.length,
+                    reviewedParticipants: reviewedParticipants.length,
+                    rankings: sortedParticipants.map((p, index) => ({
+                        rank: index + 1,
+                        hunter: p.hunter.username,
+                        score: p.submission.review.totalScore
+                    }))
+                }
+            });
+    
+        } catch (error) {
+            return res.status(500).json({
+                status: 500,
+                success: false,
+                message: 'Error posting result',
                 error: error.message
             });
         }
