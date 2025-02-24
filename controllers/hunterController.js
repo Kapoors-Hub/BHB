@@ -578,6 +578,64 @@ async resendForgotPasswordOTP(req, res) {
                 error: error.message
             });
         }
+    },
+
+    // My Level
+    async getMyLevel(req, res) {
+        try {
+            const hunterId = req.hunter.id;
+            const hunter = await Hunter.findById(hunterId);
+    
+            if (!hunter) {
+                return res.status(404).json({
+                    status: 404,
+                    success: false,
+                    message: 'Hunter not found'
+                });
+            }
+    
+            // Calculate XP needed for next rank/tier
+            let nextThreshold;
+            const xp = hunter.xp;
+    
+            if (xp < 18000) {  // Bronze tier
+                if (hunter.level.rank === 'Novice') nextThreshold = 18000 * 0.33;
+                else if (hunter.level.rank === 'Specialist') nextThreshold = 18000 * 0.66;
+                else nextThreshold = 18000;
+            } else if (xp < 42000) {  // Silver tier
+                if (hunter.level.rank === 'Novice') nextThreshold = 18000 + (42000 - 18000) * 0.33;
+                else if (hunter.level.rank === 'Specialist') nextThreshold = 18000 + (42000 - 18000) * 0.66;
+                else nextThreshold = 42000;
+            } else {  // Gold tier
+                if (hunter.level.rank === 'Novice') nextThreshold = 42000 + (72000 - 42000) * 0.33;
+                else if (hunter.level.rank === 'Specialist') nextThreshold = 42000 + (72000 - 42000) * 0.66;
+                else nextThreshold = 72000;
+            }
+    
+            return res.status(200).json({
+                status: 200,
+                success: true,
+                message: 'Level info retrieved successfully',
+                data: {
+                    currentXP: hunter.xp,
+                    level: {
+                        tier: hunter.level.tier,
+                        rank: hunter.level.rank
+                    },
+                    nextThreshold,
+                    xpNeeded: nextThreshold - hunter.xp,
+                    maxTierXP: hunter.level.tier === 'Bronze' ? 18000 : 
+                              hunter.level.tier === 'Silver' ? 42000 : 72000
+                }
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500,
+                success: false,
+                message: 'Error retrieving level info',
+                error: error.message
+            });
+        }
     }
 
 };
