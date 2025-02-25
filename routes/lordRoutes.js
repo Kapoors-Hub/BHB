@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const lordController = require('../controllers/lordController');
 const bountyController = require('../controllers/bountyController')
+const issueController = require('../controllers/issueController');
 const { validateLordToken } = require('../middleware/validateLord');
 
 // Auth routes
@@ -24,11 +25,18 @@ router.post('/bounties/:bountyId/review/:hunterId', validateLordToken, bountyCon
 router.post('/bounties/:bountyId/result', validateLordToken, bountyController.postBountyResult);
 
 // Bank Details
-// routes/lordRoutes.js
 router.post('/bank-accounts', validateLordToken, lordController.addBankAccount);
 router.get('/bank-accounts', validateLordToken, lordController.getBankAccounts);
 router.put('/bank-accounts/:accountId', validateLordToken, lordController.updateBankAccount);
 router.delete('/bank-accounts/:accountId', validateLordToken, lordController.deleteBankAccount);
 router.put('/bank-accounts/:accountId/set-default', validateLordToken, lordController.setDefaultBankAccount);
+
+//issue
+router.post('/issues', validateLordToken, issueController.reportIssue);
+router.get('/issues', validateLordToken, issueController.getMyIssues);
+router.get('/issues/:issueId', validateLordToken, issueController.getIssue);
+router.put('/issues/:issueId', validateLordToken, issueController.updateIssue);
+router.put('/issues/:issueId/close', validateLordToken, issueController.closeIssue);
+
 module.exports = router;
 

@@ -297,7 +297,7 @@ const lordController = {
     async updateLordProfile(req, res) {
         try {
             const lordId = req.lord.id;
-            const { username, email, mobileNumber, currentPassword, newPassword } = req.body;
+            const { username, email, mobileNumber, currentPassword, newPassword, firstName, lastName } = req.body;
             
             // Find lord with password
             const lord = await Lord.findById(lordId).select('+password');
@@ -386,6 +386,9 @@ const lordController = {
                     message: 'Current password is required to update password'
                 });
             }
+
+            updateData.firstName = firstName;
+            updateData.lastName = lastName;
             
             // Update lord profile
             const updatedLord = await Lord.findByIdAndUpdate(

@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const hunterController = require('../controllers/hunterController');
+const issueController = require('../controllers/issueController');
 const hunterBountyController = require('../controllers/hunterBountyController')
 const { validateHunterRegistration } = require('../middleware/validation');
 const { validateHunterToken } = require('../middleware/hunterAuth');
@@ -27,5 +28,12 @@ router.post('/bounties/:bountyId/accept', validateHunterToken, hunterBountyContr
 router.post('/bounties/:bountyId/submit',validateHunterToken,upload.array('files', 5), hunterBountyController.submitBountyWork);
 router.get('/bounties/:bountyId/score', validateHunterToken, hunterBountyController.getMyScore);
 router.get('/level', validateHunterToken, hunterController.getMyLevel);
+
+// issue
+router.post('/issues', validateHunterToken, issueController.reportIssue);
+router.get('/issues', validateHunterToken, issueController.getMyIssues);
+router.get('/issues/:issueId', validateHunterToken, issueController.getIssue);
+router.put('/issues/:issueId', validateHunterToken, issueController.updateIssue);
+router.put('/issues/:issueId/close', validateHunterToken, issueController.closeIssue);
 
 module.exports = router;

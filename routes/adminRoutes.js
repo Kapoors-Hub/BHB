@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 const badgeController = require('../controllers/badgeController');
+const adminIssueController = require('../controllers/adminIssueController');
 const { validateAdmin } = require('../middleware/auth');
 
 router.post('/login', adminController.login);
@@ -15,9 +16,15 @@ router.post('/hunters/:hunterId/send-otp', validateAdmin, adminController.sendOT
 router.delete('/hunters/:hunterId', validateAdmin, adminController.deleteHunter);
 
 // Badges
-// routes/adminRoutes.js
 router.post('/badges', validateAdmin, badgeController.createBadge);
 router.put('/badges/:badgeId', validateAdmin, badgeController.updateBadge);
+
+//issue
+router.get('/issues', validateAdmin, adminIssueController.getAllIssues);
+router.get('/issues/type/:type', validateAdmin, adminIssueController.getIssuesByType);
+router.get('/issues/:userType/:userId/:issueId', validateAdmin, adminIssueController.getIssueDetails);
+router.put('/issues/:userType/:userId/:issueId/assign', validateAdmin, adminIssueController.assignIssue);
+router.put('/issues/:userType/:userId/:issueId/resolve', validateAdmin, adminIssueController.resolveIssue);
 
 module.exports = router;
 

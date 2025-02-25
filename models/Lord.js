@@ -94,6 +94,40 @@ const lordSchema = new mongoose.Schema({
         expiresAt: Date
     },
     bankAccounts: [bankAccountSchema],
+    issues: [{
+        type: {
+            type: String,
+            required: [true, 'Issue type is required'],
+            enum: ['technical', 'payment', 'content', 'other']
+        },
+        query: {
+            type: String,
+            required: [true, 'Query description is required']
+        },
+        attachedFiles: [{
+            fileName: String,
+            filePath: String,
+            uploadedAt: {
+                type: Date,
+                default: Date.now
+            }
+        }],
+        status: {
+            type: String,
+            enum: ['open', 'in-progress', 'resolved', 'closed'],
+            default: 'open'
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now
+        },
+        resolvedAt: Date,
+        adminResponse: String,
+        adminId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Admin'
+        }
+    }],
     createdAt: {
         type: Date,
         default: Date.now
