@@ -147,6 +147,50 @@ const lordController = {
         }
     },
 
+    //verify Password
+async verifyPassword(req, res) {
+    try {
+        const lordId = req.lord.id;
+        const { password } = req.body;
+
+        if (!password) {
+            return res.status(400).json({
+                status: 400,
+                success: false,
+                message: 'Password is required'
+            });
+        }
+
+        // Find lord with password field
+        const lord = await Lord.findById(lordId).select('+password');
+        
+        if (!lord) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'Lord not found'
+            });
+        }
+
+        // Verify password
+        const isPasswordValid = await bcrypt.compare(password, lord.password);
+        
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: isPasswordValid ? 'Password is correct' : 'Password is incorrect',
+            isValid: isPasswordValid
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error verifying password',
+            error: error.message
+        });
+    }
+},
+
     // Forgot password
     async forgotPassword(req, res) {
         const { email } = req.body;

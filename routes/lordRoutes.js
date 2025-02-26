@@ -8,6 +8,7 @@ const { validateLordToken } = require('../middleware/validateLord');
 // Auth routes
 router.post('/register', lordController.register);
 router.post('/login', lordController.login);
+router.post('/verify-password', validateLordToken, lordController.verifyPassword);
 router.post('/forgot-password', lordController.forgotPassword);
 router.post('/reset-password', lordController.resetPassword);
 router.get('/logout', validateLordToken, lordController.logout);
