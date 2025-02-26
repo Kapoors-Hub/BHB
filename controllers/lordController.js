@@ -148,6 +148,7 @@ const lordController = {
     },
 
     //verify Password
+// controllers/lordController.js - Add this method
 async verifyPassword(req, res) {
     try {
         const lordId = req.lord.id;
@@ -175,11 +176,18 @@ async verifyPassword(req, res) {
         // Verify password
         const isPasswordValid = await bcrypt.compare(password, lord.password);
         
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                status: 401,
+                success: false,
+                message: 'Incorrect password'
+            });
+        }
+
         return res.status(200).json({
             status: 200,
             success: true,
-            message: isPasswordValid ? 'Password is correct' : 'Password is incorrect',
-            isValid: isPasswordValid
+            message: 'Password verified successfully'
         });
     } catch (error) {
         return res.status(500).json({
