@@ -1,6 +1,7 @@
 const Bounty = require('../models/Bounty');
 const Lord = require('../models/Lord');
 const Hunter = require('../models/Hunter');
+const { checkAndAwardBadges } = require('../services/badgeService');
 
 const bountyController = {
     // Create new bounty
@@ -374,6 +375,31 @@ async getHunterSubmission(req, res) {
         try {
             const { bountyId, hunterId } = req.params;
             const lordId = req.lord.id;
+            const {
+                adherenceToBrief,
+                conceptualThinking,
+                technicalExecution,
+                originalityCreativity,
+                documentation,
+                feedback
+            } = req.body;
+    
+            // Validate that all scores are provided
+            const scores = [
+                adherenceToBrief,
+                conceptualThinking,
+                technicalExecution,
+                originalityCreativity,
+                documentation
+            ];
+    
+            if (scores.some(score => score === undefined || score < 0 || score > 5)) {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    message: 'All scores must be provided and be between 0 and 5'
+                });
+            }
     
             // Check if result date has passed
             const bounty = await Bounty.findOne({

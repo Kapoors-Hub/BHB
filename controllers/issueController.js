@@ -1,6 +1,7 @@
 // controllers/issueController.js
 const Lord = require('../models/Lord');
 const Hunter = require('../models/Hunter');
+const Admin = require("../models/Admin")
 const upload = require('../config/multer');
 
 const issueController = {

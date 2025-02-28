@@ -26,7 +26,7 @@ router.get('/issues/type/:type', validateAdmin, adminIssueController.getIssuesBy
 router.get('/issues/:userType/:userId/:issueId', validateAdmin, adminIssueController.getIssueDetails);
 router.put('/issues/:userType/:userId/:issueId/assign', validateAdmin, adminIssueController.assignIssue);
 router.put('/issues/:userType/:userId/:issueId/resolve', validateAdmin, adminIssueController.resolveIssue);
-router.post('/admin/issues/:issueId/respond', validateAdmin, issueController.addResponseToIssue);
+router.post('/issues/:issueId/respond', validateAdmin, issueController.addResponseToIssue);
 
 module.exports = router;
 
