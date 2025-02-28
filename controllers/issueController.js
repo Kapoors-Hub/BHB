@@ -22,7 +22,8 @@ const issueController = {
                 const files = req.files || [];
                 
                 // Validate issue type
-                const validTypes = ['technical', 'payment', 'content', 'other'];
+                const validTypes = ['Technical Issue ', 'Payment Issue',  'Project and Work Submission', 'Other', "Account & Profile", "Hunter/Lord Behavior", "General Inquiry"];
+
                 if (!validTypes.includes(type)) {
                     return res.status(400).json({
                         status: 400,
