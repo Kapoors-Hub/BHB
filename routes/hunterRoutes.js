@@ -28,6 +28,8 @@ router.post('/bounties/:bountyId/accept', validateHunterToken, hunterBountyContr
 router.post('/bounties/:bountyId/submit',validateHunterToken,upload.array('files', 5), hunterBountyController.submitBountyWork);
 router.get('/bounties/:bountyId/score', validateHunterToken, hunterBountyController.getMyScore);
 router.get('/level', validateHunterToken, hunterController.getMyLevel);
+router.get('/bounties/:bountyId/rankings', validateHunterToken, hunterBountyController.getBountyRankings);
+
 
 // issue
 router.post('/issues', validateHunterToken, issueController.reportIssue);

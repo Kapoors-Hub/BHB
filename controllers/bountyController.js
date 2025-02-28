@@ -592,7 +592,114 @@ if (hunter) {
                 error: error.message
             });
         }
+    },
+
+    // Get hunter rankings for a bounty
+async getBountyRankings(req, res) {
+    try {
+        const { bountyId } = req.params;
+        
+        // Find the bounty and populate hunter information
+        const bounty = await Bounty.findById(bountyId)
+            .populate('participants.hunter', 'username name email xp level')
+            .populate('createdBy', 'username firstName lastName');
+            
+        if (!bounty) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'Bounty not found'
+            });
+        }
+        
+        // Filter out participants with reviews
+        const reviewedParticipants = bounty.participants.filter(
+            p => p.submission && p.submission.review
+        );
+        
+        // Sort participants by score (highest first)
+        const rankedParticipants = reviewedParticipants.sort(
+            (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
+        );
+        
+        // Format data for response
+        const rankings = rankedParticipants.map((participant, index) => ({
+            rank: index + 1,
+            hunter: {
+                id: participant.hunter._id,
+                username: participant.hunter.username,
+                name: participant.hunter.name
+            },
+            scores: {
+                adherenceToBrief: participant.submission.review.adherenceToBrief,
+                conceptualThinking: participant.submission.review.conceptualThinking,
+                technicalExecution: participant.submission.review.technicalExecution,
+                originalityCreativity: participant.submission.review.originalityCreativity,
+                documentation: participant.submission.review.documentation,
+                totalScore: participant.submission.review.totalScore
+            },
+            submittedAt: participant.submission.submittedAt,
+            reviewedAt: participant.submission.review.reviewedAt
+        }));
+        
+        // Get unreviewed participants
+        const unreviewedParticipants = bounty.participants
+            .filter(p => p.submission && !p.submission.review)
+            .map(p => ({
+                hunter: {
+                    id: p.hunter._id,
+                    username: p.hunter.username,
+                    name: p.hunter.name
+                },
+                submittedAt: p.submission.submittedAt,
+                reviewed: false
+            }));
+            
+        // Get participants who haven't submitted yet
+        const notSubmittedParticipants = bounty.participants
+            .filter(p => !p.submission)
+            .map(p => ({
+                hunter: {
+                    id: p.hunter._id,
+                    username: p.hunter.username,
+                    name: p.hunter.name
+                },
+                joined: true,
+                submitted: false
+            }));
+        
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Bounty rankings retrieved successfully',
+            data: {
+                bountyId: bounty._id,
+                bountyTitle: bounty.title,
+                createdBy: {
+                    id: bounty.createdBy._id,
+                    name: `${bounty.createdBy.firstName} ${bounty.createdBy.lastName}`,
+                    username: bounty.createdBy.username
+                },
+                status: bounty.status,
+                startTime: bounty.startTime,
+                endTime: bounty.endTime,
+                resultTime: bounty.resultTime,
+                totalParticipants: bounty.participants.length,
+                reviewedParticipants: reviewedParticipants.length,
+                rankings,
+                unreviewedSubmissions: unreviewedParticipants,
+                notSubmitted: notSubmittedParticipants
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error retrieving bounty rankings',
+            error: error.message
+        });
     }
+}
 
 };
 
