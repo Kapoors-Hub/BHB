@@ -39,6 +39,7 @@ router.get('/issues', validateLordToken, issueController.getMyIssues);
 router.get('/issues/:issueId', validateLordToken, issueController.getIssue);
 router.put('/issues/:issueId', validateLordToken, issueController.updateIssue);
 router.put('/issues/:issueId/close', validateLordToken, issueController.closeIssue);
+router.post('/issues/:issueId/respond', validateLordToken, issueController.addResponseToIssue);
 
 module.exports = router;
 

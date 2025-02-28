@@ -318,7 +318,125 @@ const issueController = {
                 error: error.message
             });
         }
+    },
+
+    // responses
+async addResponseToIssue(req, res) {
+    try {
+        const { issueId } = req.params;
+        const { message } = req.body;
+        let senderRole, senderId, senderName;
+        
+        // Determine sender information
+        if (req.lord) {
+            senderRole = 'Lord';
+            senderId = req.lord.id;
+            const lord = await Lord.findById(senderId);
+            senderName = `${lord.firstName} ${lord.lastName}`;
+        } else if (req.admin) {
+            senderRole = 'Admin';
+            senderId = req.admin.id;
+            const admin = await Admin.findById(senderId);
+            senderName = admin.username;
+        } else if (req.hunter) {
+            senderRole = 'Hunter';
+            senderId = req.hunter.id;
+            const hunter = await Hunter.findById(senderId);
+            senderName = hunter.name;
+        } else {
+            return res.status(401).json({
+                status: 401, 
+                success: false,
+                message: 'Unauthorized'
+            });
+        }
+        
+        // Upload files if provided (similar to your existing file upload logic)
+        const files = req.files || [];
+        const attachedFiles = files.map(file => ({
+            fileName: file.originalname,
+            filePath: file.path,
+            uploadedAt: new Date()
+        }));
+        
+        // Find the appropriate user model and issue
+        let user, userType;
+        if (req.lord) {
+            user = await Lord.findById(req.lord.id);
+            userType = 'lord';
+        } else if (req.hunter) {
+            user = await Hunter.findById(req.hunter.id); 
+            userType = 'hunter';
+        } else if (req.admin) {
+            // Admin is responding to someone else's issue
+            const { userType: targetUserType, userId } = req.query;
+            
+            if (targetUserType === 'lord') {
+                user = await Lord.findById(userId);
+                userType = 'lord';
+            } else if (targetUserType === 'hunter') {
+                user = await Hunter.findById(userId);
+                userType = 'hunter';
+            } else {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    message: 'Invalid user type'
+                });
+            }
+        }
+        
+        if (!user) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        const issue = user.issues.id(issueId);
+        if (!issue) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'Issue not found'
+            });
+        }
+        
+        // Add response to the issue
+        issue.responses.push({
+            message,
+            sender: {
+                id: senderId,
+                role: senderRole,
+                name: senderName
+            },
+            attachedFiles,
+            createdAt: new Date()
+        });
+        
+        await user.save();
+        
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Response added to issue',
+            data: {
+                issueId,
+                userType,
+                responseCount: issue.responses.length,
+                latestResponse: issue.responses[issue.responses.length - 1]
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error adding response',
+            error: error.message
+        });
     }
+}
 };
 
 module.exports = issueController;

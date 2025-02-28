@@ -3,6 +3,7 @@ const router = express.Router();
 const adminController = require('../controllers/adminController');
 const badgeController = require('../controllers/badgeController');
 const adminIssueController = require('../controllers/adminIssueController');
+const issueController = require('../controllers/issueController');
 const { validateAdmin } = require('../middleware/auth');
 
 router.post('/login', adminController.login);
@@ -25,6 +26,7 @@ router.get('/issues/type/:type', validateAdmin, adminIssueController.getIssuesBy
 router.get('/issues/:userType/:userId/:issueId', validateAdmin, adminIssueController.getIssueDetails);
 router.put('/issues/:userType/:userId/:issueId/assign', validateAdmin, adminIssueController.assignIssue);
 router.put('/issues/:userType/:userId/:issueId/resolve', validateAdmin, adminIssueController.resolveIssue);
+router.post('/admin/issues/:issueId/respond', validateAdmin, issueController.addResponseToIssue);
 
 module.exports = router;
 

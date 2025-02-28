@@ -35,5 +35,6 @@ router.get('/issues', validateHunterToken, issueController.getMyIssues);
 router.get('/issues/:issueId', validateHunterToken, issueController.getIssue);
 router.put('/issues/:issueId', validateHunterToken, issueController.updateIssue);
 router.put('/issues/:issueId/close', validateHunterToken, issueController.closeIssue);
+router.post('/hunters/issues/:issueId/respond', validateHunterToken, issueController.addResponseToIssue);
 
 module.exports = router;
