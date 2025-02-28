@@ -98,7 +98,7 @@ const lordSchema = new mongoose.Schema({
         type: {
             type: String,
             required: [true, 'Issue type is required'],
-            enum: ['Technical Issue ', 'Payment Issue',  'Project and Work Submission', 'Other',"Account & Profile","Hunter/Lord Behavior","General Inquiry"]
+            enum: ['Technical Issue ', 'Payment Issue',  'Project and Work Submission', 'Other', "Account & Profile", "Hunter/Lord Behavior", "General Inquiry"]
         },
         query: {
             type: String,
@@ -117,6 +117,35 @@ const lordSchema = new mongoose.Schema({
             enum: ['open', 'in-progress', 'resolved', 'closed'],
             default: 'open'
         },
+        responses: [{
+            message: {
+                type: String,
+                required: true
+            },
+            sender: {
+                id: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    refPath: 'issues.responses.sender.role'
+                },
+                role: {
+                    type: String,
+                    enum: ['Admin', 'Lord', 'Hunter']
+                },
+                name: String
+            },
+            attachedFiles: [{
+                fileName: String,
+                filePath: String,
+                uploadedAt: {
+                    type: Date,
+                    default: Date.now
+                }
+            }],
+            createdAt: {
+                type: Date,
+                default: Date.now
+            }
+        }],
         createdAt: {
             type: Date,
             default: Date.now
