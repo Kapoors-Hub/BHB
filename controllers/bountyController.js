@@ -482,6 +482,29 @@ async getHunterSubmission(req, res) {
                 );
                 await checkAndAwardBadges(lastPlace.hunter._id);
             }
+
+            const hunter = await Hunter.findById(hunterId);
+
+// Calculate XP changes based on scores
+let xpChange = 0;
+
+// Apply XP calculation formula for each parameter:
+// Scores above 2.5: score * 100 XP
+// Scores below 2.5: -1 * (3-score) * 100 XP
+scores.forEach(score => {
+    if (score >= 3) {
+        xpChange += score * 100;
+    } else if (score <= 2) {
+        xpChange -= (3 - score) * 100;
+    }
+});
+
+// Update hunter's XP
+if (hunter) {
+    hunter.xp += xpChange;
+    await hunter.save();
+}
+
     
             return res.status(200).json({
                 status: 200,
@@ -495,7 +518,9 @@ async getHunterSubmission(req, res) {
                         hunter: currentLeader.hunter.username,
                         score: currentLeader.submission.review.totalScore
                     },
-                    isCurrentLeader: currentLeader.hunter._id.toString() === hunterId
+                    isCurrentLeader: currentLeader.hunter._id.toString() === hunterId,
+                    xpChange: xpChange,  // Added XP change
+                    newTotalXp: hunter ? hunter.xp : null  // Added new total XP
                 }
             });
     
