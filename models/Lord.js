@@ -98,7 +98,7 @@ const lordSchema = new mongoose.Schema({
         type: {
             type: String,
             required: [true, 'Issue type is required'],
-            enum: ['technical', 'payment', 'content', 'other']
+            enum: ['Technical Issue ', 'Payment Issue',  'Project and Work Submission', 'Other',"Account & Profile","Hunter/Lord Behavior","General Inquiry"]
         },
         query: {
             type: String,
