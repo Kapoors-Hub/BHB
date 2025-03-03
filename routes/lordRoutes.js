@@ -27,6 +27,14 @@ router.post('/bounties/:bountyId/review/:hunterId', validateLordToken, bountyCon
 router.post('/bounties/:bountyId/result', validateLordToken, bountyController.postBountyResult);
 router.get('/bounties/:bountyId/rankings', validateLordToken, bountyController.getBountyRankings);
 
+// Draft Bounties 
+router.post('/bounties/drafts', validateLordToken, bountyController.saveBountyDraft);
+router.get('/bounties/drafts', validateLordToken, bountyController.getDraftBounties);
+router.get('/bounties/drafts/:draftId', validateLordToken, bountyController.getDraftBounty);
+router.put('/bounties/drafts/:draftId', validateLordToken, bountyController.saveBountyDraft);
+router.delete('/bounties/drafts/:draftId', validateLordToken, bountyController.deleteDraftBounty);
+router.post('/bounties/drafts/:draftId/publish', validateLordToken, bountyController.publishDraft);
+
 // Bank Details
 router.post('/bank-accounts', validateLordToken, lordController.addBankAccount);
 router.get('/bank-accounts', validateLordToken, lordController.getBankAccounts);

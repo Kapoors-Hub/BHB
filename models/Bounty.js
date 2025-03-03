@@ -89,8 +89,8 @@ const bountySchema = new mongoose.Schema({
         },
         status: {
             type: String,
-            enum: ['active', 'completed', 'withdrawn'],
-            default: 'active'
+            enum: ['draft', 'active', 'completed', 'cancelled'],
+            default: 'draft'
         },
         submission: {
             description: String,

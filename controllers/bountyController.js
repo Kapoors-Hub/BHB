@@ -699,6 +699,249 @@ async getBountyRankings(req, res) {
             error: error.message
         });
     }
+},
+
+// Save bounty as draft
+async saveBountyDraft(req, res) {
+    try {
+        const lordId = req.lord.id;
+        const bountyData = req.body;
+        
+        // Set status to draft explicitly
+        bountyData.status = 'draft';
+        bountyData.createdBy = lordId;
+        
+        // If bountyId is provided, update existing draft
+        if (bountyData._id) {
+            const existingBounty = await Bounty.findOne({
+                _id: bountyData._id,
+                createdBy: lordId,
+                status: 'draft'
+            });
+            
+            if (!existingBounty) {
+                return res.status(404).json({
+                    status: 404,
+                    success: false,
+                    message: 'Draft bounty not found or cannot be edited'
+                });
+            }
+            
+            // Update existing draft
+            const updatedDraft = await Bounty.findByIdAndUpdate(
+                bountyData._id,
+                bountyData,
+                { new: true }
+            );
+            
+            return res.status(200).json({
+                status: 200,
+                success: true,
+                message: 'Draft updated successfully',
+                data: updatedDraft
+            });
+        }
+        
+        // Create new draft
+        const newDraft = await Bounty.create(bountyData);
+        
+        // Add to lord's bounties array
+        await Lord.findByIdAndUpdate(
+            lordId,
+            { $push: { bounties: newDraft._id } }
+        );
+        
+        return res.status(201).json({
+            status: 201,
+            success: true,
+            message: 'Draft saved successfully',
+            data: newDraft
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error saving draft',
+            error: error.message
+        });
+    }
+},
+
+// Get all draft bounties
+async getDraftBounties(req, res) {
+    try {
+        const lordId = req.lord.id;
+        
+        const drafts = await Bounty.find({
+            createdBy: lordId,
+            status: 'draft'
+        }).sort({ updatedAt: -1 });
+        
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Draft bounties retrieved successfully',
+            data: {
+                count: drafts.length,
+                drafts
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error retrieving drafts',
+            error: error.message
+        });
+    }
+},
+
+// Get a specific draft
+async getDraftBounty(req, res) {
+    try {
+        const { draftId } = req.params;
+        const lordId = req.lord.id;
+        
+        const draft = await Bounty.findOne({
+            _id: draftId,
+            createdBy: lordId,
+            status: 'draft'
+        });
+        
+        if (!draft) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'Draft not found'
+            });
+        }
+        
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Draft retrieved successfully',
+            data: draft
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error retrieving draft',
+            error: error.message
+        });
+    }
+},
+
+// Delete a draft
+async deleteDraftBounty(req, res) {
+    try {
+        const { draftId } = req.params;
+        const lordId = req.lord.id;
+        
+        const draft = await Bounty.findOne({
+            _id: draftId,
+            createdBy: lordId,
+            status: 'draft'
+        });
+        
+        if (!draft) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'Draft not found'
+            });
+        }
+        
+        await Bounty.findByIdAndDelete(draftId);
+        
+        // Remove from lord's bounties array
+        await Lord.findByIdAndUpdate(
+            lordId,
+            { $pull: { bounties: draftId } }
+        );
+        
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Draft deleted successfully'
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error deleting draft',
+            error: error.message
+        });
+    }
+},
+
+// Publish a draft (change status from draft to active)
+async publishDraft(req, res) {
+    try {
+        const { draftId } = req.params;
+        const lordId = req.lord.id;
+        
+        const draft = await Bounty.findOne({
+            _id: draftId,
+            createdBy: lordId,
+            status: 'draft'
+        });
+        
+        if (!draft) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'Draft not found'
+            });
+        }
+        
+        // Validate required fields before publishing
+        const requiredFields = [
+            'title', 'context', 'startTime', 'endTime', 'resultTime',
+            'doubtSessionTime', 'doubtSessionDate', 'doubtSessionLink', 
+            'rewardPrize', 'maxHunters'
+        ];
+        
+        const missingFields = requiredFields.filter(field => !draft[field]);
+        
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                status: 400,
+                success: false,
+                message: 'Cannot publish incomplete draft',
+                missingFields
+            });
+        }
+        
+        // Set status based on timing
+        const currentTime = new Date();
+        const startTime = new Date(draft.startTime);
+        
+        const status = currentTime >= startTime ? 'active' : 'draft';
+        
+        // Update status
+        const publishedBounty = await Bounty.findByIdAndUpdate(
+            draftId,
+            { status },
+            { new: true }
+        );
+        
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: status === 'active' ? 
+                'Bounty published and active' : 
+                'Bounty scheduled for future activation',
+            data: publishedBounty
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error publishing draft',
+            error: error.message
+        });
+    }
 }
 
 };
