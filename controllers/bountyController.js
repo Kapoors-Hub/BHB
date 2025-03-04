@@ -303,73 +303,74 @@ const bountyController = {
     },
 
     // Get a specific hunter's submission for a bounty
-    async getHunterSubmission(req, res) {
-        try {
-            const { bountyId, hunterId } = req.params;
-            const lordId = req.lord.id;
+    // async getHunterSubmission(req, res) {
+    //     try {
+    //         const { bountyId, hunterId } = req.params;
+    //         const lordId = req.lord.id;
 
-            // Find the bounty and verify ownership
-            const bounty = await Bounty.findOne({
-                _id: bountyId,
-                createdBy: lordId
-            }).populate('participants.hunter', 'username name email');
+    //         // Find the bounty and verify ownership
+    //         const bounty = await Bounty.findOne({
+    //             _id: bountyId,
+    //             createdBy: lordId
+    //         }).populate('participants.hunter', 'username name email');
 
-            if (!bounty) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Bounty not found or you do not have permission'
-                });
-            }
+    //         if (!bounty) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Bounty not found or you do not have permission'
+    //             });
+    //         }
 
-            // Find the participant
-            const participant = bounty.participants.find(
-                p => p.hunter._id.toString() === hunterId
-            );
+    //         // Find the participant
+    //         const participant = bounty.participants.find(
+    //             p => p.hunter._id.toString() === hunterId
+    //         );
+            
 
-            if (!participant) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Hunter not found in this bounty'
-                });
-            }
+    //         if (!participant) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Hunter not found in this bounty'
+    //             });
+    //         }
 
-            if (!participant.submission) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Hunter has not submitted any work yet'
-                });
-            }
+    //         if (!participant.submission) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Hunter has not submitted any work yet'
+    //             });
+    //         }
 
-            return res.status(200).json({
-                status: 200,
-                success: true,
-                message: 'Hunter submission retrieved successfully',
-                data: {
-                    bountyTitle: bounty.title,
-                    hunter: {
-                        id: participant.hunter._id,
-                        name: participant.hunter.name,
-                        username: participant.hunter.username,
-                        email: participant.hunter.email
-                    },
-                    submission: participant.submission,
-                    submittedAt: participant.submission.submittedAt,
-                    reviewed: !!participant.submission.review,
-                    joinedAt: participant.joinedAt
-                }
-            });
-        } catch (error) {
-            return res.status(500).json({
-                status: 500,
-                success: false,
-                message: 'Error retrieving hunter submission',
-                error: error.message
-            });
-        }
-    },
+    //         return res.status(200).json({
+    //             status: 200,
+    //             success: true,
+    //             message: 'Hunter submission retrieved successfully',
+    //             data: {
+    //                 bountyTitle: bounty.title,
+    //                 hunter: {
+    //                     id: participant.hunter._id,
+    //                     name: participant.hunter.name,
+    //                     username: participant.hunter.username,
+    //                     email: participant.hunter.email
+    //                 },
+    //                 submission: participant.submission,
+    //                 submittedAt: participant.submission.submittedAt,
+    //                 reviewed: !!participant.submission.review,
+    //                 joinedAt: participant.joinedAt
+    //             }
+    //         });
+    //     } catch (error) {
+    //         return res.status(500).json({
+    //             status: 500,
+    //             success: false,
+    //             message: 'Error retrieving hunter submission',
+    //             error: error.message
+    //         });
+    //     }
+    // },
 
     // Review Submission
     // async reviewSubmission(req, res) {
@@ -1268,7 +1269,7 @@ const bountyController = {
                     });
                 }
             }
-
+            console.log(shortlistedSubmissions)
             return res.status(200).json({
                 status: 200,
                 success: true,
