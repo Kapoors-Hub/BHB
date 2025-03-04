@@ -636,6 +636,47 @@ async resendForgotPasswordOTP(req, res) {
                 error: error.message
             });
         }
+    },
+
+     // Titles
+     async getMyTitles(req, res) {
+        try {
+            const hunterId = req.hunter.id;
+
+            const hunter = await Hunter.findById(hunterId)
+                .populate('titles.title')
+                .select('titles');
+
+            const now = new Date();
+
+            // Separate active and expired titles
+            const activeTitles = hunter.titles.filter(title =>
+                title.validUntil > now
+            );
+
+            const expiredTitles = hunter.titles.filter(title =>
+                title.validUntil <= now
+            );
+
+            return res.status(200).json({
+                status: 200,
+                success: true,
+                message: 'Titles retrieved successfully',
+                data: {
+                    activeTitles,
+                    expiredTitles,
+                    totalActive: activeTitles.length,
+                    totalExpired: expiredTitles.length
+                }
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500,
+                success: false,
+                message: 'Error retrieving titles',
+                error: error.message
+            });
+        }
     }
 
 };

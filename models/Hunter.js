@@ -91,6 +91,25 @@ const hunterSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  // Add to Hunter schema
+titles: [{
+  title: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Title'
+  },
+  awardedAt: {
+      type: Date,
+      default: Date.now
+  },
+  validUntil: {
+      type: Date,
+      required: true
+  },
+  awardedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin'
+  }
+}],
   achievements: {
     bountiesWon: {
       count: { type: Number, default: 0 },

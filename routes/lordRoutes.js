@@ -3,7 +3,7 @@ const router = express.Router();
 const lordController = require('../controllers/lordController');
 const bountyController = require('../controllers/bountyController')
 const issueController = require('../controllers/issueController');
-const { validateLordToken } = require('../middleware/validateLord');
+const { validateLordToken } = require('../middleware/validateLord');       
 
 // Auth routes
 router.post('/register', lordController.register);
@@ -49,6 +49,13 @@ router.get('/issues/:issueId', validateLordToken, issueController.getIssue);
 router.put('/issues/:issueId', validateLordToken, issueController.updateIssue);
 router.put('/issues/:issueId/close', validateLordToken, issueController.closeIssue);
 router.post('/issues/:issueId/respond', validateLordToken, issueController.addResponseToIssue);
+
+// Shortlist 
+router.post('/bounties/:bountyId/submissions/:hunterId/shortlist', validateLordToken, bountyController.shortlistSubmission);
+router.delete('/bounties/:bountyId/submissions/:hunterId/shortlist', validateLordToken, bountyController.removeFromShortlist);
+router.get('/bounties/:bountyId/submissions/shortlisted', validateLordToken, bountyController.getShortlistedSubmissions);
+router.get('/bounties/:bountyId/submissions/evaluated', validateLordToken, bountyController.getEvaluatedSubmissions);
+router.get('/bounties/:bountyId/submissions/to-evaluate', validateLordToken, bountyController.getSubmissionsToEvaluate);
 
 module.exports = router;
 

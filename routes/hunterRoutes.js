@@ -40,4 +40,7 @@ router.put('/issues/:issueId/close', validateHunterToken, issueController.closeI
 router.post('/hunters/issues/:issueId/respond', validateHunterToken, issueController.addResponseToIssue);
 // router.get('/public/bounties/:bountyId/rankings', bountyController.getBountyRankings);
 
+// tiitles
+router.get('/titles/my', validateHunterToken, hunterController.getMyTitles);
+
 module.exports = router;

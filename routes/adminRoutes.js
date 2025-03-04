@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 const badgeController = require('../controllers/badgeController');
+const titleController = require('../controllers/titleController');
 const adminIssueController = require('../controllers/adminIssueController');
 const issueController = require('../controllers/issueController');
 const { validateAdmin } = require('../middleware/auth');
@@ -19,6 +20,13 @@ router.delete('/hunters/:hunterId', validateAdmin, adminController.deleteHunter)
 // Badges
 router.post('/badges', validateAdmin, badgeController.createBadge);
 router.put('/badges/:badgeId', validateAdmin, badgeController.updateBadge);
+
+// titles
+router.post('/titles', validateAdmin, titleController.createTitle);
+router.get('/titles', validateAdmin, titleController.getAllTitles);
+router.post('/titles/award', validateAdmin, titleController.awardTitle);
+router.get('/titles/current-holders', validateAdmin, titleController.getCurrentTitleHolders);
+router.get('/titles/recommendations', validateAdmin, titleController.generateTitleRecommendations);
 
 //issue
 router.get('/issues', validateAdmin, adminIssueController.getAllIssues);

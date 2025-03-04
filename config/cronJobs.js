@@ -1,13 +1,14 @@
 // config/cronJobs.js
 const cron = require('node-cron');
 const Bounty = require('../models/Bounty');
+const Hunter = require('../models/Hunter');
 
 const initCronJobs = () => {
     cron.schedule('* * * * *', async () => {
         try {
             const currentTime = new Date();
             console.log('Running bounty status update check at:', currentTime);
-    
+
             // Update draft to active
             const draftResults = await Bounty.updateMany(
                 {
@@ -16,7 +17,7 @@ const initCronJobs = () => {
                 },
                 { $set: { status: 'active' } }
             );
-    
+
             // Update active to completed
             const activeResults = await Bounty.updateMany(
                 {
@@ -25,7 +26,7 @@ const initCronJobs = () => {
                 },
                 { $set: { status: 'completed' } }
             );
-    
+
             // Log status changes
             if (draftResults.modifiedCount > 0 || activeResults.modifiedCount > 0) {
                 console.log('Status updates:', {
@@ -35,6 +36,33 @@ const initCronJobs = () => {
             }
         } catch (error) {
             console.error('Error updating bounty statuses:', error);
+        }
+    });
+
+    // Add to config/cronJobs.js
+    // Remove expired titles from hunter profiles - run daily at midnight
+    cron.schedule('0 0 * * *', async () => {
+        try {
+            const now = new Date();
+
+            // Find hunters with expired titles
+            const hunters = await Hunter.find({
+                'titles.validUntil': { $lt: now }
+            });
+
+            // For each hunter, move expired titles to history
+            for (const hunter of hunters) {
+                const activeTitles = hunter.titles.filter(title =>
+                    title.validUntil > now
+                );
+
+                hunter.titles = activeTitles;
+                await hunter.save();
+            }
+
+            console.log('Expired titles cleaned up');
+        } catch (error) {
+            console.error('Error cleaning up expired titles:', error);
         }
     });
 };

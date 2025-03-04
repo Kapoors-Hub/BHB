@@ -89,8 +89,8 @@ const bountySchema = new mongoose.Schema({
         },
         status: {
             type: String,
-            enum: ['draft', 'active', 'completed', 'cancelled'],
-            default: 'draft'
+            enum: ['active', 'completed', 'withdrawn'],
+            default: 'active'
         },
         submission: {
             description: String,
@@ -139,6 +139,14 @@ const bountySchema = new mongoose.Schema({
                 }
             }
         }
+    }],
+    shortlistedHunters: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Hunter'
+    }],
+    evaluatedHunters: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Hunter'
     }],
     status: {
         type: String,
