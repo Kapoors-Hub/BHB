@@ -3,6 +3,7 @@ const Lord = require('../models/Lord');
 const Hunter = require('../models/Hunter');
 const { checkAndAwardBadges } = require('../services/badgeService');
 const { calculateReviewXP, updateHunterXP } = require('../services/xpService');
+const passController = require("./passController")
 
 const bountyController = {
     // Create new bounty
@@ -722,6 +723,7 @@ const bountyController = {
 
             // Update bounty status to completed
             bounty.status = 'completed';
+            await passController.awardPassesForBounty(bountyId); // but i doubt !!
             await bounty.save();
 
             return res.status(200).json({

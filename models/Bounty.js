@@ -92,6 +92,11 @@ const bountySchema = new mongoose.Schema({
             enum: ['active', 'completed', 'withdrawn'],
             default: 'active'
         },
+        extendedEndTime: Date, // For time extension pass
+        boosterActive: {
+            type: Boolean,
+            default: false
+        },
         submission: {
             description: String,
             files: [{
@@ -160,14 +165,14 @@ const bountySchema = new mongoose.Schema({
 });
 
 // Pre-save middleware to calculate days
-bountySchema.pre('save', function(next) {
+bountySchema.pre('save', function (next) {
     if (this.startTime && this.endTime) {
         const startDate = new Date(this.startTime);
         const endDate = new Date(this.endTime);
-        
+
         // Calculate difference in milliseconds
         const differenceMs = endDate - startDate;
-        
+
         // Convert milliseconds to days
         this.days = Math.ceil(differenceMs / (1000 * 60 * 60 * 24));
     }

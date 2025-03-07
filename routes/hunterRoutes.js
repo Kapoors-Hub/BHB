@@ -3,7 +3,9 @@ const express = require('express');
 const router = express.Router();
 const hunterController = require('../controllers/hunterController');
 const issueController = require('../controllers/issueController');
-const hunterBountyController = require('../controllers/hunterBountyController')
+const hunterQuizController = require('../controllers/hunterQuizController');
+const hunterBountyController = require('../controllers/hunterBountyController');
+const passController = require('../controllers/passController')
 const { validateHunterRegistration } = require('../middleware/validation');
 const { validateHunterToken } = require('../middleware/hunterAuth');
 const upload = require('../config/multer');
@@ -42,5 +44,18 @@ router.post('/hunters/issues/:issueId/respond', validateHunterToken, issueContro
 
 // tiitles
 router.get('/titles/my', validateHunterToken, hunterController.getMyTitles);
+
+// Quizes
+router.get('/quizzes', validateHunterToken, hunterQuizController.getAvailableQuizzes);
+router.post('/quizzes/:quizId/start', validateHunterToken, hunterQuizController.startQuiz);
+router.get('/quizzes/history', validateHunterToken, hunterQuizController.getQuizHistory);
+router.post('/quizzes/attempts/:quizAttemptId/complete', validateHunterToken, hunterQuizController.completeQuiz);
+
+// Passes
+router.get('/passes', validateHunterToken, passController.getHunterPasses);
+router.post('/passes/time-extension/:bountyId', validateHunterToken, passController.useTimeExtensionPass);
+router.post('/passes/reset-foul/:foulRecordId', validateHunterToken, passController.useResetFoulPass);
+router.post('/passes/booster/:bountyId', validateHunterToken, passController.useBoosterPass);
+
 
 module.exports = router;

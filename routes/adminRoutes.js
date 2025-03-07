@@ -5,6 +5,9 @@ const badgeController = require('../controllers/badgeController');
 const titleController = require('../controllers/titleController');
 const adminIssueController = require('../controllers/adminIssueController');
 const issueController = require('../controllers/issueController');
+const quizController = require('../controllers/quizController');
+const foulController = require('../controllers/foulController');
+const passController = require('../controllers/passController')
 const { validateAdmin } = require('../middleware/auth');
 
 router.post('/login', adminController.login);
@@ -20,6 +23,9 @@ router.delete('/hunters/:hunterId', validateAdmin, adminController.deleteHunter)
 // Badges
 router.post('/badges', validateAdmin, badgeController.createBadge);
 router.put('/badges/:badgeId', validateAdmin, badgeController.updateBadge);
+router.get('/badges', validateAdmin , badgeController.getAllBadges);
+router.get('/badges/:badgeId', validateAdmin , badgeController.getBadgeById);
+router.get('/hunters/:hunterId/badges', validateAdmin , badgeController.getHunterBadges);
 
 // titles
 router.post('/titles', validateAdmin, titleController.createTitle);
@@ -35,6 +41,23 @@ router.get('/issues/:userType/:userId/:issueId', validateAdmin, adminIssueContro
 router.put('/issues/:userType/:userId/:issueId/assign', validateAdmin, adminIssueController.assignIssue);
 router.put('/issues/:userType/:userId/:issueId/resolve', validateAdmin, adminIssueController.resolveIssue);
 router.post('/issues/:issueId/respond', validateAdmin, issueController.addResponseToIssue);
+
+// Quiz management routes
+router.post('/quizzes', validateAdmin, quizController.createQuiz);
+router.put('/quizzes/:quizId', validateAdmin, quizController.updateQuiz);
+router.get('/quizzes', validateAdmin, quizController.getAllQuizzes);
+router.get('/quizzes/:quizId', validateAdmin, quizController.getQuizDetails);
+router.delete('/quizzes/:quizId', validateAdmin, quizController.deleteQuiz);
+router.post('/quizzes/upload-image', validateAdmin, quizController.uploadQuestionImage);
+router.get('/quizzes/:quizId/statistics', validateAdmin, quizController.getQuizStatistics);
+
+// Foul management routes
+router.post('/fouls', validateAdmin, foulController.createFoul);
+router.get('/fouls', validateAdmin, foulController.getAllFouls);
+router.put('/fouls/:foulId', validateAdmin, foulController.updateFoul);
+router.post('/fouls/apply', validateAdmin, foulController.applyFoul);
+router.get('/hunters/:hunterId/fouls', validateAdmin, foulController.getHunterFoulHistory);
+router.post('/passes/seasonal', validateAdmin, passController.awardSeasonalPasses)
 
 module.exports = router;
 

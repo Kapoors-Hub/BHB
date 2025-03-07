@@ -65,6 +65,16 @@ const initCronJobs = () => {
             console.error('Error cleaning up expired titles:', error);
         }
     });
+
+    // Add to config/cronJobs.js
+// Reset monthly passes on the 1st of each month
+cron.schedule('0 0 1 * *', async () => {
+    try {
+        await passController.resetMonthlyPasses();
+    } catch (error) {
+        console.error('Error in monthly pass reset cron job:', error);
+    }
+});
 };
 
 module.exports = initCronJobs;
