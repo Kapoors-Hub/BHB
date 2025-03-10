@@ -5,7 +5,8 @@ const hunterController = require('../controllers/hunterController');
 const issueController = require('../controllers/issueController');
 const hunterQuizController = require('../controllers/hunterQuizController');
 const hunterBountyController = require('../controllers/hunterBountyController');
-const passController = require('../controllers/passController')
+const passController = require('../controllers/passController');
+const notificationController = require('../controllers/notificationController');
 const { validateHunterRegistration } = require('../middleware/validation');
 const { validateHunterToken } = require('../middleware/hunterAuth');
 const upload = require('../config/multer');
@@ -56,6 +57,11 @@ router.get('/passes', validateHunterToken, passController.getHunterPasses);
 router.post('/passes/time-extension/:bountyId', validateHunterToken, passController.useTimeExtensionPass);
 router.post('/passes/reset-foul/:foulRecordId', validateHunterToken, passController.useResetFoulPass);
 router.post('/passes/booster/:bountyId', validateHunterToken, passController.useBoosterPass);
+
+// Notification routes
+router.get('/notifications', validateHunterToken, notificationController.getNotifications);
+router.get('/notifications/unread-count', validateHunterToken, notificationController.getUnreadCount);
+router.put('/notifications/:notificationId', validateHunterToken, notificationController.updateNotificationStatus);
 
 
 module.exports = router;

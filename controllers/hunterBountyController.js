@@ -1,6 +1,7 @@
 // controllers/hunterBountyController.js
 const Bounty = require('../models/Bounty');
 const Hunter = require('../models/Hunter');
+const notificationController = require('./notificationController');
 const path = require('path');
 
 const hunterBountyController = {
@@ -120,6 +121,15 @@ const hunterBountyController = {
             const updatedBounty = await Bounty.findById(bounty._id)
                 .populate('participants.hunter', 'username');
 
+            await notificationController.createNotification({
+                    hunterId: hunterId,
+                    title: 'Bounty Accepted',
+                    message: `You've successfully accepted the bounty: ${bounty.title}`,
+                    type: 'bounty',
+                    relatedItem: bounty._id,
+                    itemModel: 'Bounty'
+                });
+
             return res.status(200).json({
                 status: 200,
                 success: true,
@@ -237,6 +247,15 @@ const hunterBountyController = {
                     }
                 }
             );
+
+            await notificationController.createNotification({
+                hunterId: hunterId,
+                title: 'Submission Successful',
+                message: `Your work for bounty "${bounty.title}" has been submitted successfully.`,
+                type: 'bounty',
+                relatedItem: bounty._id,
+                itemModel: 'Bounty'
+            });
 
             return res.status(200).json({
                 status: 200,
