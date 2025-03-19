@@ -69,6 +69,27 @@ const hunterSchema = new mongoose.Schema({
     type: Number,
     default: 375
   },
+  performance: {
+    score: {
+      type: Number,
+      default: 0
+    },
+    bountyScores: [{
+      bounty: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Bounty'
+      },
+      score: Number,
+      calculatedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    totalBountiesCalculated: {
+      type: Number,
+      default: 0
+    }
+  },
   level: {
     tier: {
       type: String,

@@ -22,6 +22,7 @@ router.post('/forgot-password', hunterController.forgotPassword);
 router.post('/reset-password', hunterController.resetPassword);
 router.post('/resend-reset-otp', hunterController.resendForgotPasswordOTP);
 router.post('/resend-otp', hunterController.resendOTP);
+router.get('/profile', validateHunterToken, hunterController.getHunterProfile);
 
 // Bounty routes for hunters
 router.get('/bounties', validateHunterToken, hunterBountyController.getAvailableBounties);
@@ -63,5 +64,6 @@ router.get('/notifications', validateHunterToken, notificationController.getNoti
 router.get('/notifications/unread-count', validateHunterToken, notificationController.getUnreadCount);
 router.put('/notifications/:notificationId', validateHunterToken, notificationController.updateNotificationStatus);
 
+router.get('/performance', validateHunterToken, hunterController.getMyPerformance);
 
 module.exports = router;

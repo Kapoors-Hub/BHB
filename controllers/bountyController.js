@@ -3,7 +3,8 @@ const Lord = require('../models/Lord');
 const Hunter = require('../models/Hunter');
 const { checkAndAwardBadges } = require('../services/badgeService');
 const { calculateReviewXP, updateHunterXP } = require('../services/xpService');
-const passController = require("./passController")
+const passController = require("./passController");
+const performanceCalculator = require('../utils/performanceCalculator');
 
 const bountyController = {
     // Create new bounty
@@ -691,66 +692,113 @@ const bountyController = {
         }
     },
 
-    async postBountyResult(req, res) {
-        try {
-            const { bountyId } = req.params;
-            const lordId = req.lord.id;
 
-            const bounty = await Bounty.findOne({
-                _id: bountyId,
-                createdBy: lordId
-            }).populate('participants.hunter');
+async postBountyResult(req, res) {
+    try {
+        const { bountyId } = req.params;
+        const lordId = req.lord.id;
 
-            // Check if result date has reached
-            const currentDate = new Date();
-            if (currentDate < bounty.resultTime) {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: 'Cannot post result before result date'
-                });
-            }
+        const bounty = await Bounty.findOne({
+            _id: bountyId,
+            createdBy: lordId
+        }).populate('participants.hunter');
 
-            // Get reviewed submissions
-            const reviewedParticipants = bounty.participants.filter(
-                p => p.submission && p.submission.review
-            );
-
-            // Sort by score
-            const sortedParticipants = reviewedParticipants.sort(
-                (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
-            );
-
-            // Update bounty status to completed
-            bounty.status = 'completed';
-            await passController.awardPassesForBounty(bountyId); // but i doubt !!
-            await bounty.save();
-
-            return res.status(200).json({
-                status: 200,
-                success: true,
-                message: 'Bounty result posted successfully',
-                data: {
-                    bountyTitle: bounty.title,
-                    totalParticipants: bounty.participants.length,
-                    reviewedParticipants: reviewedParticipants.length,
-                    rankings: sortedParticipants.map((p, index) => ({
-                        rank: index + 1,
-                        hunter: p.hunter.username,
-                        score: p.submission.review.totalScore
-                    }))
-                }
-            });
-
-        } catch (error) {
-            return res.status(500).json({
-                status: 500,
+        // Check if result date has reached
+        const currentDate = new Date();
+        if (currentDate < bounty.resultTime) {
+            return res.status(400).json({
+                status: 400,
                 success: false,
-                message: 'Error posting result',
-                error: error.message
+                message: 'Cannot post result before result date'
             });
         }
-    },
+
+        // Get reviewed submissions
+        const reviewedParticipants = bounty.participants.filter(
+            p => p.submission && p.submission.review
+        );
+
+        // Sort by score
+        const sortedParticipants = reviewedParticipants.sort(
+            (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
+        );
+
+        // Calculate performance scores for each participant
+        const performanceResults = [];
+        for (let i = 0; i < sortedParticipants.length; i++) {
+            const participant = sortedParticipants[i];
+            const rank = i + 1; // 1-based ranking
+            
+            try {
+                const performanceResult = await performanceCalculator.calculatePerformanceScore(
+                    participant.hunter._id.toString(),
+                    bountyId,
+                    rank
+                );
+                
+                if (performanceResult) {
+                    performanceResults.push({
+                        hunterId: participant.hunter._id,
+                        hunterUsername: participant.hunter.username,
+                        performanceScore: performanceResult.bountyScore,
+                        overallScore: performanceResult.overallScore
+                    });
+                }
+            } catch (perfError) {
+                console.error(`Error calculating performance for hunter ${participant.hunter._id}:`, perfError);
+                // Continue with other hunters even if one fails
+            }
+        }
+
+        // Update bounty status to completed
+        bounty.status = 'completed';
+        await passController.awardPassesForBounty(bountyId);
+        await bounty.save();
+
+        // Send notifications to all participants about results
+        for (const participant of sortedParticipants) {
+            try {
+                const rank = sortedParticipants.findIndex(p => p.hunter._id.toString() === participant.hunter._id.toString()) + 1;
+                
+                await notificationController.createNotification({
+                    hunterId: participant.hunter._id,
+                    title: 'Bounty Results Published',
+                    message: `Results for "${bounty.title}" are now available. You ranked #${rank} out of ${sortedParticipants.length} hunters.`,
+                    type: 'bounty',
+                    relatedItem: bountyId,
+                    itemModel: 'Bounty'
+                });
+            } catch (notifyError) {
+                console.error(`Error sending notification to hunter ${participant.hunter._id}:`, notifyError);
+            }
+        }
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Bounty result posted successfully',
+            data: {
+                bountyTitle: bounty.title,
+                totalParticipants: bounty.participants.length,
+                reviewedParticipants: reviewedParticipants.length,
+                rankings: sortedParticipants.map((p, index) => ({
+                    rank: index + 1,
+                    hunter: p.hunter.username,
+                    score: p.submission.review.totalScore,
+                    performanceScore: performanceResults.find(r => r.hunterId.toString() === p.hunter._id.toString())?.performanceScore || null
+                }))
+            }
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error posting result',
+            error: error.message
+        });
+    }
+},
 
     // Get hunter rankings for a bounty
     async getBountyRankings(req, res) {
