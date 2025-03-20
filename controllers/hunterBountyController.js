@@ -404,10 +404,10 @@ async checkAcceptedBountyStatus(req, res) {
                 });
             }
 
-            const adherenceToBrief= participation.submission.review.adherenceToBrief,
-            const    conceptualThinking= participation.submission.review.conceptualThinking,
-            const   technicalExecution= participation.submission.review.technicalExecution,
-            const    originalityCreativity= participation.submission.review.originalityCreativity,
+            const adherenceToBrief= participation.submission.review.adherenceToBrief
+            const    conceptualThinking= participation.submission.review.conceptualThinking
+            const   technicalExecution= participation.submission.review.technicalExecution
+            const    originalityCreativity= participation.submission.review.originalityCreativity
             const    documentation= participation.submission.review.documentation
             
             // Get review scores
