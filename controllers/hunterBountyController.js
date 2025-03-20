@@ -360,9 +360,9 @@ async checkAcceptedBountyStatus(req, res) {
         try {
             const { bountyId } = req.params;
             const hunterId = req.hunter.id;
-
+            
             const bounty = await Bounty.findById(bountyId).populate('createdBy', 'username');
-
+            
             if (!bounty) {
                 return res.status(404).json({
                     status: 404,
@@ -370,12 +370,12 @@ async checkAcceptedBountyStatus(req, res) {
                     message: 'Bounty not found'
                 });
             }
-
+            
             // Find hunter's participation
             const participation = bounty.participants.find(
                 p => p.hunter.toString() === hunterId
             );
-
+            
             if (!participation) {
                 return res.status(404).json({
                     status: 404,
@@ -383,7 +383,7 @@ async checkAcceptedBountyStatus(req, res) {
                     message: 'You are not a participant in this bounty'
                 });
             }
-
+            
             if (!participation.submission || !participation.submission.submittedAt) {
                 return res.status(400).json({
                     status: 400,
@@ -391,7 +391,7 @@ async checkAcceptedBountyStatus(req, res) {
                     message: 'You have not submitted any work for this bounty'
                 });
             }
-
+            
             if (!participation.submission.review || !participation.submission.review.reviewedAt) {
                 return res.status(200).json({
                     status: 200,
@@ -403,11 +403,20 @@ async checkAcceptedBountyStatus(req, res) {
                     }
                 });
             }
-
-            // Calculate XP change using XP service
+            
+            // Get review scores
+            const scores = {
+                adherenceToBrief: participation.submission.review.adherenceToBrief,
+                conceptualThinking: participation.submission.review.conceptualThinking,
+                technicalExecution: participation.submission.review.technicalExecution,
+                originalityCreativity: participation.submission.review.originalityCreativity,
+                documentation: participation.submission.review.documentation
+            };
+            
+            // Calculate XP using XP service
             const xp = calculateReviewXP(scores);
-
-            // Return score details
+            
+            // Return score details with XP information
             return res.status(200).json({
                 status: 200,
                 success: true,
@@ -417,15 +426,15 @@ async checkAcceptedBountyStatus(req, res) {
                     reviewed: true,
                     reviewedAt: participation.submission.review.reviewedAt,
                     scores: {
-                        adherenceToBrief: participation.submission.review.adherenceToBrief,
-                        conceptualThinking: participation.submission.review.conceptualThinking,
-                        technicalExecution: participation.submission.review.technicalExecution,
-                        originalityCreativity: participation.submission.review.originalityCreativity,
-                        documentation: participation.submission.review.documentation
+                        adherenceToBrief: scores.adherenceToBrief,
+                        conceptualThinking: scores.conceptualThinking,
+                        technicalExecution: scores.technicalExecution,
+                        originalityCreativity: scores.originalityCreativity,
+                        documentation: scores.documentation
                     },
                     totalScore: participation.submission.review.totalScore,
-                    xp:xp,
-                    feedback: participation.submission.review.feedback
+                    feedback: participation.submission.review.feedback,
+                    xpEarned: xp // Add the XP information to the response
                 }
             });
         } catch (error) {
