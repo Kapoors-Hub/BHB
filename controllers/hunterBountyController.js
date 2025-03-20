@@ -60,6 +60,76 @@ const hunterBountyController = {
         }
     },
 
+    // Check if hunter has accepted a bounty
+async checkAcceptedBountyStatus(req, res) {
+    try {
+        const { bountyId } = req.params;
+        const hunterId = req.hunter.id;
+        
+        // Find the hunter
+        const hunter = await Hunter.findById(hunterId);
+        
+        if (!hunter) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'Hunter not found'
+            });
+        }
+        
+        // Check if the bounty ID is in the hunter's acceptedBounties array
+        const isAccepted = hunter.acceptedBounties.includes(bountyId);
+        
+        // Get additional details if the bounty is accepted
+        let bountyDetails = null;
+        let participantStatus = null;
+        
+        if (isAccepted) {
+            const bounty = await Bounty.findOne({
+                _id: bountyId,
+                'participants.hunter': hunterId
+            });
+            
+            if (bounty) {
+                const participant = bounty.participants.find(
+                    p => p.hunter.toString() === hunterId
+                );
+                
+                if (participant) {
+                    participantStatus = participant.status;
+                    
+                    bountyDetails = {
+                        title: bounty.title,
+                        status: bounty.status,
+                        startTime: bounty.startTime,
+                        endTime: bounty.endTime,
+                        hasSubmitted: participant.submission && participant.submission.submittedAt ? true : false,
+                        participantStatus: participantStatus
+                    };
+                }
+            }
+        }
+        
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            data: {
+                isAccepted,
+                bountyId,
+                participantStatus,
+                bountyDetails
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error checking bounty status',
+            error: error.message
+        });
+    }
+},
+
     // Accept a bounty
     async acceptBounty(req, res) {
         try {
@@ -463,7 +533,99 @@ const hunterBountyController = {
                 error: error.message
             });
         }
+    },
+
+    // Quit/withdraw from a bounty
+async quitBounty(req, res) {
+    try {
+        const { bountyId } = req.params;
+        const hunterId = req.hunter.id;
+        
+        // Find the bounty
+        const bounty = await Bounty.findById(bountyId);
+        
+        if (!bounty) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: 'Bounty not found'
+            });
+        }
+        
+        // Check if hunter is participating in this bounty
+        const participantIndex = bounty.participants.findIndex(
+            p => p.hunter.toString() === hunterId
+        );
+        
+        if (participantIndex === -1) {
+            return res.status(400).json({
+                status: 400,
+                success: false,
+                message: 'You are not participating in this bounty'
+            });
+        }
+        
+        // Check if bounty is active
+        if (bounty.status !== 'active') {
+            return res.status(400).json({
+                status: 400,
+                success: false,
+                message: 'Can only withdraw from active bounties'
+            });
+        }
+        
+        // Check if hunter has already submitted work
+        if (bounty.participants[participantIndex].submission && 
+            bounty.participants[participantIndex].submission.submittedAt) {
+            return res.status(400).json({
+                status: 400,
+                success: false,
+                message: 'Cannot withdraw after submitting work'
+            });
+        }
+        
+        // Update participant status to withdrawn
+        bounty.participants[participantIndex].status = 'withdrawn';
+        
+        // Decrement currentHunters count
+        bounty.currentHunters -= 1;
+        
+        await bounty.save();
+        
+        // Remove bounty from hunter's acceptedBounties
+        await Hunter.findByIdAndUpdate(
+            hunterId,
+            { $pull: { acceptedBounties: bountyId } }
+        );
+        
+        // Create notification for hunter
+        await notificationController.createNotification({
+            hunterId: hunterId,
+            title: 'Bounty Withdrawal',
+            message: `You have successfully withdrawn from the bounty: ${bounty.title}`,
+            type: 'bounty',
+            relatedItem: bountyId,
+            itemModel: 'Bounty'
+        });
+        
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Successfully withdrawn from bounty',
+            data: {
+                bountyTitle: bounty.title,
+                withdrawalDate: new Date()
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error withdrawing from bounty',
+            error: error.message
+        });
     }
+}
 
    
 };

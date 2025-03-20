@@ -43,6 +43,9 @@ const bountySchema = new mongoose.Schema({
             default: Date.now
         }
     }],
+    assetsDescription: {
+        type: String,
+    },
     doubtSessionTime: {
         type: String,  // Format: "HH:mm"
         required: [true, 'Doubt session time is required']
@@ -158,6 +161,11 @@ const bountySchema = new mongoose.Schema({
         enum: ['draft', 'active', 'completed', 'cancelled'],
         default: 'draft'
     },
+    level: {
+        type: [String],
+        enum: ['Bronze', 'Silver', 'Gold'],
+        default: ['Bronze', 'Silver', 'Gold']
+    },
     createdAt: {
         type: Date,
         default: Date.now
@@ -176,6 +184,18 @@ bountySchema.pre('save', function (next) {
         // Convert milliseconds to days
         this.days = Math.ceil(differenceMs / (1000 * 60 * 60 * 24));
     }
+
+     // Set level based on reward prize
+     const reward = this.rewardPrize;
+    
+     if (reward >= 0 && reward <= 3000) {
+         this.level = ['Bronze', 'Silver', 'Gold'];
+     } else if (reward > 3000 && reward <= 5000) {
+         this.level = ['Silver', 'Gold'];
+     } else if (reward > 5000) {
+         this.level = ['Gold'];
+     }
+     
     next();
 });
 

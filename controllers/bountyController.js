@@ -22,7 +22,9 @@ const bountyController = {
                 doubtSessionDate,
                 doubtSessionLink,
                 rewardPrize,
-                maxHunters
+                maxHunters,
+                assets,
+                assetsDescription
             } = req.body;
 
             // Validate dates
@@ -72,6 +74,8 @@ const bountyController = {
                 doubtSessionLink,
                 rewardPrize,
                 maxHunters,
+                assets,
+                assetsDescription,
                 status: initialStatus,
                 createdBy: req.lord.id
             });
