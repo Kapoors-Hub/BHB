@@ -566,13 +566,13 @@ async quitBounty(req, res) {
         }
         
         // Check if bounty is active
-        if (bounty.status !== 'active') {
-            return res.status(400).json({
-                status: 400,
-                success: false,
-                message: 'Can only withdraw from active bounties'
-            });
-        }
+        // if (bounty.status !== 'active') {
+        //     return res.status(400).json({
+        //         status: 400,
+        //         success: false,
+        //         message: 'Can only withdraw from active bounties'
+        //     });
+        // }
         
         // Check if hunter has already submitted work
         if (bounty.participants[participantIndex].submission && 
