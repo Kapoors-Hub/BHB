@@ -61,6 +61,7 @@ const hunterBountyController = {
     },
 
     // Check if hunter has accepted a bounty
+
 async checkAcceptedBountyStatus(req, res) {
     try {
         const { bountyId } = req.params;
@@ -79,6 +80,9 @@ async checkAcceptedBountyStatus(req, res) {
         
         // Check if the bounty ID is in the hunter's acceptedBounties array
         const isAccepted = hunter.acceptedBounties.includes(bountyId);
+        
+        // Check if the bounty ID is in the hunter's quitBounties array
+        const hasQuit = hunter.quitBounties.includes(bountyId);
         
         // Get additional details if the bounty is accepted
         let bountyDetails = null;
@@ -115,6 +119,7 @@ async checkAcceptedBountyStatus(req, res) {
             success: true,
             data: {
                 isAccepted,
+                hasQuit,
                 bountyId,
                 participantStatus,
                 bountyDetails
@@ -535,7 +540,7 @@ async checkAcceptedBountyStatus(req, res) {
         }
     },
 
-    // Quit/withdraw from a bounty
+// Quit/withdraw from a bounty
 async quitBounty(req, res) {
     try {
         const { bountyId } = req.params;
@@ -592,10 +597,13 @@ async quitBounty(req, res) {
         
         await bounty.save();
         
-        // Remove bounty from hunter's acceptedBounties
+        // Update hunter: Remove from acceptedBounties and add to quitBounties
         await Hunter.findByIdAndUpdate(
             hunterId,
-            { $pull: { acceptedBounties: bountyId } }
+            { 
+                $pull: { acceptedBounties: bountyId },
+                $addToSet: { quitBounties: bountyId } // Use addToSet to avoid duplicates
+            }
         );
         
         // Create notification for hunter

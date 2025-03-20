@@ -200,6 +200,10 @@ passes: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Bounty'
   }],
+  quitBounties: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Bounty'
+  }],
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected', 'verified'],
