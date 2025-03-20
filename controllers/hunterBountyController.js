@@ -1,6 +1,7 @@
 // controllers/hunterBountyController.js
 const Bounty = require('../models/Bounty');
 const Hunter = require('../models/Hunter');
+const { calculateReviewXP } = require('../services/xpService');
 const notificationController = require('./notificationController');
 const path = require('path');
 
