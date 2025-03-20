@@ -280,13 +280,13 @@ async checkAcceptedBountyStatus(req, res) {
             }
 
             // Check if bounty is still active
-            if (bounty.status !== 'active') {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: 'Bounty is not active for submissions'
-                });
-            }
+            // if (bounty.status !== 'active') {
+            //     return res.status(400).json({
+            //         status: 400,
+            //         success: false,
+            //         message: 'Bounty is not active for submissions'
+            //     });
+            // }
 
             // Check if submission is within time limit
             const currentTime = new Date();
