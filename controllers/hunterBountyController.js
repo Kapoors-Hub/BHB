@@ -432,11 +432,11 @@ async checkAcceptedBountyStatus(req, res) {
                     reviewed: true,
                     reviewedAt: participation.submission.review.reviewedAt,
                     scores: {
-                        adherenceToBrief: scores.adherenceToBrief,
-                        conceptualThinking: scores.conceptualThinking,
-                        technicalExecution: scores.technicalExecution,
-                        originalityCreativity: scores.originalityCreativity,
-                        documentation: scores.documentation
+                        adherenceToBrief: participation.submission.review.adherenceToBrief,
+                        conceptualThinking: participation.submission.review.conceptualThinking,
+                        technicalExecution: participation.submission.review.technicalExecution,
+                        originalityCreativity: participation.submission.review.originalityCreativity,
+                        documentation: participation.submission.review.documentation
                     },
                     totalScore: participation.submission.review.totalScore,
                     feedback: participation.submission.review.feedback,
