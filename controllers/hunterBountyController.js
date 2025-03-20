@@ -403,15 +403,21 @@ async checkAcceptedBountyStatus(req, res) {
                     }
                 });
             }
+
+            const adherenceToBrief= participation.submission.review.adherenceToBrief,
+            const    conceptualThinking= participation.submission.review.conceptualThinking,
+            const   technicalExecution= participation.submission.review.technicalExecution,
+            const    originalityCreativity= participation.submission.review.originalityCreativity,
+            const    documentation= participation.submission.review.documentation
             
             // Get review scores
-            const scores = {
-                adherenceToBrief: participation.submission.review.adherenceToBrief,
-                conceptualThinking: participation.submission.review.conceptualThinking,
-                technicalExecution: participation.submission.review.technicalExecution,
-                originalityCreativity: participation.submission.review.originalityCreativity,
-                documentation: participation.submission.review.documentation
-            };
+            const scores = [
+                adherenceToBrief,
+                conceptualThinking,
+                technicalExecution,
+                originalityCreativity,
+                documentation
+            ];
             
             // Calculate XP using XP service
             const xp = calculateReviewXP(scores);
