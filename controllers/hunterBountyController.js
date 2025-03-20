@@ -403,6 +403,9 @@ async checkAcceptedBountyStatus(req, res) {
                 });
             }
 
+            // Calculate XP change using XP service
+            const xp = calculateReviewXP(scores);
+
             // Return score details
             return res.status(200).json({
                 status: 200,
@@ -420,6 +423,7 @@ async checkAcceptedBountyStatus(req, res) {
                         documentation: participation.submission.review.documentation
                     },
                     totalScore: participation.submission.review.totalScore,
+                    xp:xp,
                     feedback: participation.submission.review.feedback
                 }
             });
