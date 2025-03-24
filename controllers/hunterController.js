@@ -441,6 +441,137 @@ async getHunterProfile(req, res) {
         }
     },
 
+
+// Update hunter personal information
+async updatePersonalInfo(req, res) {
+    try {
+      const hunterId = req.hunter.id;
+      const {
+        name,
+        collegeName,
+        personalEmail,
+        mobileNumber,
+        discipline,
+        graduatingYear,
+        dateOfBirth,
+        city,
+        state,
+        postalZipCode,
+        placeOfResidence,
+        guild
+      } = req.body;
+  
+      // Find hunter by id
+      const hunter = await Hunter.findById(hunterId);
+      if (!hunter) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter not found'
+        });
+      }
+  
+      // Check if personalEmail is changing and if so, validate it's not taken
+      if (personalEmail && personalEmail !== hunter.personalEmail) {
+        const existingEmailHunter = await Hunter.findOne({ personalEmail });
+        if (existingEmailHunter) {
+          return res.status(400).json({
+            status: 400,
+            success: false,
+            message: 'Personal email is already in use'
+          });
+        }
+      }
+  
+      // Check if mobile number is changing and if so, validate it's not taken
+      if (mobileNumber && mobileNumber !== hunter.mobileNumber) {
+        const existingMobileHunter = await Hunter.findOne({ mobileNumber });
+        if (existingMobileHunter) {
+          return res.status(400).json({
+            status: 400,
+            success: false,
+            message: 'Mobile number is already in use'
+          });
+        }
+      }
+  
+      // Fields that can be updated directly
+      const updatableFields = {
+        name,
+        collegeName,
+        personalEmail,
+        mobileNumber,
+        discipline,
+        graduatingYear,
+        dateOfBirth,
+        city,
+        state,
+        postalZipCode,
+        placeOfResidence,
+        guild
+      };
+  
+      // Remove undefined fields (fields not included in the request)
+      Object.keys(updatableFields).forEach(key => {
+        if (updatableFields[key] === undefined) {
+          delete updatableFields[key];
+        }
+      });
+  
+      // Update hunter with validated fields
+      const updatedHunter = await Hunter.findByIdAndUpdate(
+        hunterId,
+        { $set: updatableFields },
+        { new: true, runValidators: true }
+      ).select('-resetPasswordOtp -otp -password');
+  
+      // Create notification about profile update
+      await notificationController.createNotification({
+        hunterId: hunterId,
+        title: 'Profile Updated',
+        message: 'Your personal information has been successfully updated.',
+        type: 'system'
+      });
+  
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'Personal information updated successfully',
+        data: {
+          personalInfo: {
+            id: updatedHunter._id,
+            name: updatedHunter.name,
+            username: updatedHunter.username,
+            collegeName: updatedHunter.collegeName,
+            collegeEmail: updatedHunter.collegeEmail,
+            personalEmail: updatedHunter.personalEmail,
+            mobileNumber: updatedHunter.mobileNumber,
+            discipline: updatedHunter.discipline,
+            graduatingYear: updatedHunter.graduatingYear,
+            dateOfBirth: updatedHunter.dateOfBirth,
+            location: {
+              city: updatedHunter.city,
+              state: updatedHunter.state,
+              postalZipCode: updatedHunter.postalZipCode,
+              placeOfResidence: updatedHunter.placeOfResidence
+            },
+            guild: updatedHunter.guild,
+            status: updatedHunter.status,
+            isVerified: updatedHunter.isVerified,
+            createdAt: updatedHunter.createdAt
+          }
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error updating personal information',
+        error: error.message
+      });
+    }
+  },
+
     // Request password reset
     async forgotPassword(req, res) {
         const { emailOrUsername } = req.body;

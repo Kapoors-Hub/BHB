@@ -18,6 +18,7 @@ router.put('/complete-profile/:email', hunterController.completeProfile);
 router.post('/login', hunterController.login);
 router.get('/logout', hunterController.logout);
 router.put('/profile/:id', validateHunterToken, hunterController.updateProfile);
+router.put('/personal-info', validateHunterToken, hunterController.updatePersonalInfo); 
 router.post('/forgot-password', hunterController.forgotPassword);
 router.post('/reset-password', hunterController.resetPassword);
 router.post('/resend-reset-otp', hunterController.resendForgotPasswordOTP);
@@ -69,3 +70,5 @@ router.put('/notifications/:notificationId', validateHunterToken, notificationCo
 router.get('/performance', validateHunterToken, hunterController.getMyPerformance);
 
 module.exports = router;
+
+// 44fb4129-959e-41b0-93f2-faf4c8d0780b
