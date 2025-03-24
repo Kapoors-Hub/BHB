@@ -5,6 +5,7 @@ const transporter = require('../config/mailer');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Notification = require('../models/Notification');
+const notificationController = require('./notificationController');
 
 const hunterController = {
 
