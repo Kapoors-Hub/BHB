@@ -280,7 +280,187 @@ const titleController = {
                 error: error.message
             });
         }
+    },
+
+    // Revoke title from hunter
+async revokeTitleFromHunter(req, res) {
+    try {
+      const { hunterId, titleId } = req.params;
+      const { reason } = req.body;
+      const adminId = req.admin.id;
+  
+      // Check if hunter exists
+      const hunter = await Hunter.findById(hunterId);
+      if (!hunter) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter not found'
+        });
+      }
+  
+      // Check if title exists
+      const title = await Title.findById(titleId);
+      if (!title) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Title not found'
+        });
+      }
+  
+      // Check if hunter has this title
+      const titleIndex = hunter.titles.findIndex(
+        item => item.title.toString() === titleId
+      );
+  
+      if (titleIndex === -1) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'Hunter does not have this title'
+        });
+      }
+  
+      // Remove title from hunter
+      hunter.titles.splice(titleIndex, 1);
+      await hunter.save();
+  
+      // Create notification for hunter
+      await notificationController.createNotification({
+        hunterId: hunterId,
+        title: 'Title Revoked',
+        message: `Your "${title.name}" title has been revoked${reason ? ` for: ${reason}` : ''}.`,
+        type: 'system'
+      });
+  
+      // Log the action
+      console.log(`Admin ${adminId} revoked title ${titleId} from hunter ${hunterId}`);
+  
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'Title revoked successfully',
+        data: {
+          hunter: {
+            id: hunter._id,
+            name: hunter.name,
+            username: hunter.username
+          },
+          title: {
+            id: title._id,
+            name: title.name
+          }
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error revoking title',
+        error: error.message
+      });
     }
+  },
+  
+  // Extend title validity
+  async extendTitleValidity(req, res) {
+    try {
+      const { hunterId, titleId } = req.params;
+      const { extensionDays } = req.body;
+      const adminId = req.admin.id;
+  
+      if (!extensionDays || isNaN(extensionDays) || extensionDays <= 0) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'Valid extension days are required'
+        });
+      }
+  
+      // Check if hunter exists
+      const hunter = await Hunter.findById(hunterId);
+      if (!hunter) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter not found'
+        });
+      }
+  
+      // Check if title exists
+      const title = await Title.findById(titleId);
+      if (!title) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Title not found'
+        });
+      }
+  
+      // Find the title in hunter's titles
+      const titleIndex = hunter.titles.findIndex(
+        item => item.title.toString() === titleId
+      );
+  
+      if (titleIndex === -1) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'Hunter does not have this title'
+        });
+      }
+  
+      // Get current validity date
+      const currentValidUntil = new Date(hunter.titles[titleIndex].validUntil);
+      
+      // Calculate new validity date
+      const newValidUntil = new Date(currentValidUntil);
+      newValidUntil.setDate(newValidUntil.getDate() + extensionDays);
+      
+      // Update title validity
+      hunter.titles[titleIndex].validUntil = newValidUntil;
+      await hunter.save();
+  
+      // Create notification for hunter
+      await notificationController.createNotification({
+        hunterId: hunterId,
+        title: 'Title Extended',
+        message: `Your "${title.name}" title has been extended by ${extensionDays} days. New expiration: ${newValidUntil.toDateString()}.`,
+        type: 'system'
+      });
+  
+      // Log the action
+      console.log(`Admin ${adminId} extended title ${titleId} for hunter ${hunterId} by ${extensionDays} days`);
+  
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'Title validity extended successfully',
+        data: {
+          hunter: {
+            id: hunter._id,
+            name: hunter.name,
+            username: hunter.username
+          },
+          title: {
+            id: title._id,
+            name: title.name
+          },
+          previousValidUntil: currentValidUntil,
+          newValidUntil: newValidUntil,
+          extensionDays
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error extending title validity',
+        error: error.message
+      });
+    }
+  }
 };
 
 module.exports = titleController;

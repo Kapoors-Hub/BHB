@@ -26,6 +26,10 @@ router.put('/badges/:badgeId', validateAdmin, badgeController.updateBadge);
 router.get('/badges', validateAdmin , badgeController.getAllBadges);
 router.get('/badges/:badgeId', validateAdmin , badgeController.getBadgeById);
 router.get('/hunters/:hunterId/badges', validateAdmin , badgeController.getHunterBadges);
+// New route for awarding badges to hunters
+router.post('/hunters/:hunterId/badges', validateAdmin, badgeController.awardBadgeToHunter);
+// New route for revoking badges from hunters
+router.delete('/hunters/:hunterId/badges/:badgeId', validateAdmin, badgeController.revokeBadgeFromHunter);
 
 // titles
 router.post('/titles', validateAdmin, titleController.createTitle);
@@ -33,6 +37,10 @@ router.get('/titles', validateAdmin, titleController.getAllTitles);
 router.post('/titles/award', validateAdmin, titleController.awardTitle);
 router.get('/titles/current-holders', validateAdmin, titleController.getCurrentTitleHolders);
 router.get('/titles/recommendations', validateAdmin, titleController.generateTitleRecommendations);
+// New route for revoking a title from hunter
+router.delete('/hunters/:hunterId/titles/:titleId', validateAdmin, titleController.revokeTitleFromHunter);
+// New route for extending title validity
+router.put('/hunters/:hunterId/titles/:titleId/extend', validateAdmin, titleController.extendTitleValidity);
 
 //issue
 router.get('/issues', validateAdmin, adminIssueController.getAllIssues);
@@ -57,9 +65,20 @@ router.get('/fouls', validateAdmin, foulController.getAllFouls);
 router.put('/fouls/:foulId', validateAdmin, foulController.updateFoul);
 router.post('/fouls/apply', validateAdmin, foulController.applyFoul);
 router.get('/hunters/:hunterId/fouls', validateAdmin, foulController.getHunterFoulHistory);
-router.post('/passes/seasonal', validateAdmin, passController.awardSeasonalPasses)
+// New route for removing a foul
+router.delete('/hunters/:hunterId/fouls/:foulRecordId', validateAdmin, foulController.removeFoulFromHunter);
+// New route for reducing foul penalty
+router.put('/hunters/:hunterId/fouls/:foulRecordId/reduce', validateAdmin, foulController.reduceFoulPenalty);
+
+// Pass routes
+router.post('/passes/seasonal', validateAdmin, passController.awardSeasonalPasses);
+// New route for awarding specific pass to hunter
+router.post('/hunters/:hunterId/passes', validateAdmin, passController.awardPassToHunter);
+// New route for clearing passes
+router.delete('/hunters/:hunterId/passes/:passType', validateAdmin, passController.removePassFromHunter);
+
+// XP management routes
+// router.post('/hunters/:hunterId/xp', validateAdmin, adminController.adjustHunterXP);
+// router.get('/hunters/:hunterId/xp-history', validateAdmin, adminController.getHunterXPHistory);
 
 module.exports = router;
-
-
-

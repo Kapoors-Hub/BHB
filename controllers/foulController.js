@@ -287,7 +287,185 @@ const foulController = {
                 error: error.message
             });
         }
+    },
+
+    // Remove foul from hunter
+async removeFoulFromHunter(req, res) {
+    try {
+      const { hunterId, foulRecordId } = req.params;
+      const { reason } = req.body;
+      const adminId = req.admin.id;
+  
+      // Check if hunter exists
+      const hunter = await Hunter.findById(hunterId);
+      if (!hunter) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter not found'
+        });
+      }
+  
+      // Check if foul record exists
+      const foulRecord = await FoulRecord.findOne({
+        _id: foulRecordId,
+        hunter: hunterId
+      }).populate('foul', 'name xpPenaltyPercentage');
+  
+      if (!foulRecord) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Foul record not found'
+        });
+      }
+  
+      // Restore XP penalty
+      await Hunter.findByIdAndUpdate(hunterId, {
+        $inc: { xp: foulRecord.xpPenalty }
+      });
+  
+      // Mark foul as removed
+      foulRecord.removed = true;
+      foulRecord.removedAt = new Date();
+      foulRecord.removedBy = adminId;
+      foulRecord.removalReason = reason || 'Administrative decision';
+      
+      await foulRecord.save();
+  
+      // Create notification for hunter
+      await notificationController.createNotification({
+        hunterId: hunterId,
+        title: 'Foul Removed',
+        message: `Your "${foulRecord.foul.name}" foul has been removed${reason ? ` for: ${reason}` : ''}. ${foulRecord.xpPenalty} XP has been restored.`,
+        type: 'system'
+      });
+  
+      // Log the action
+      console.log(`Admin ${adminId} removed foul ${foulRecordId} from hunter ${hunterId}`);
+  
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'Foul removed successfully',
+        data: {
+          hunter: {
+            id: hunter._id,
+            name: hunter.name,
+            username: hunter.username
+          },
+          foul: {
+            id: foulRecord.foul._id,
+            name: foulRecord.foul.name
+          },
+          xpRestored: foulRecord.xpPenalty
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error removing foul',
+        error: error.message
+      });
     }
+  },
+  
+  // Reduce foul penalty
+  async reduceFoulPenalty(req, res) {
+    try {
+      const { hunterId, foulRecordId } = req.params;
+      const { reductionPercentage, reason } = req.body;
+      const adminId = req.admin.id;
+  
+      if (!reductionPercentage || isNaN(reductionPercentage) || reductionPercentage <= 0 || reductionPercentage > 100) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'Valid reduction percentage (1-100) is required'
+        });
+      }
+  
+      // Check if hunter exists
+      const hunter = await Hunter.findById(hunterId);
+      if (!hunter) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter not found'
+        });
+      }
+  
+      // Check if foul record exists
+      const foulRecord = await FoulRecord.findOne({
+        _id: foulRecordId,
+        hunter: hunterId
+      }).populate('foul', 'name xpPenaltyPercentage');
+  
+      if (!foulRecord) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Foul record not found'
+        });
+      }
+  
+      // Calculate XP to restore
+      const xpToRestore = Math.ceil(foulRecord.xpPenalty * (reductionPercentage / 100));
+      
+      // Update hunter XP
+      await Hunter.findByIdAndUpdate(hunterId, {
+        $inc: { xp: xpToRestore }
+      });
+  
+      // Update foul record
+      foulRecord.reducedPenalty = true;
+      foulRecord.reducedAt = new Date();
+      foulRecord.reducedBy = adminId;
+      foulRecord.reductionPercentage = reductionPercentage;
+      foulRecord.reductionReason = reason || 'Administrative decision';
+      foulRecord.xpRestored = xpToRestore;
+      
+      await foulRecord.save();
+  
+      // Create notification for hunter
+      await notificationController.createNotification({
+        hunterId: hunterId,
+        title: 'Foul Penalty Reduced',
+        message: `The penalty for your "${foulRecord.foul.name}" foul has been reduced by ${reductionPercentage}%. ${xpToRestore} XP has been restored.`,
+        type: 'system'
+      });
+  
+      // Log the action
+      console.log(`Admin ${adminId} reduced foul ${foulRecordId} penalty for hunter ${hunterId} by ${reductionPercentage}%`);
+  
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'Foul penalty reduced successfully',
+        data: {
+          hunter: {
+            id: hunter._id,
+            name: hunter.name,
+            username: hunter.username
+          },
+          foul: {
+            id: foulRecord.foul._id,
+            name: foulRecord.foul.name
+          },
+          reductionPercentage,
+          xpRestored: xpToRestore
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error reducing foul penalty',
+        error: error.message
+      });
+    }
+  }
 };
 
 module.exports = foulController;

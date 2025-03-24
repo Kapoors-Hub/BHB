@@ -18,6 +18,7 @@ router.put('/complete-profile/:email', hunterController.completeProfile);
 router.post('/login', hunterController.login);
 router.get('/logout', hunterController.logout);
 router.put('/profile/:id', validateHunterToken, hunterController.updateProfile);
+router.post('/verify-password', validateHunterToken, hunterController.verifyPassword)
 router.put('/personal-info', validateHunterToken, hunterController.updatePersonalInfo); 
 router.post('/forgot-password', hunterController.forgotPassword);
 router.post('/reset-password', hunterController.resetPassword);

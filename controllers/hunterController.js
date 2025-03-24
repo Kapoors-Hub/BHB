@@ -442,6 +442,54 @@ async getHunterProfile(req, res) {
         }
     },
 
+    // Add this method to hunterController.js
+
+// Verify hunter password
+async verifyPassword(req, res) {
+    try {
+      const hunterId = req.hunter.id;
+      const { password } = req.body;
+      
+      // Check if password is provided
+      if (!password) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'Password is required'
+        });
+      }
+      
+      // Find hunter with password field included
+      const hunter = await Hunter.findById(hunterId).select('+password');
+      
+      if (!hunter) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter not found'
+        });
+      }
+      
+      // Verify password
+      const isPasswordValid = await bcrypt.compare(password, hunter.password);
+      
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        data: {
+          isValid: isPasswordValid
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error verifying password',
+        error: error.message
+      });
+    }
+  },
+
 
 // Update hunter personal information
 async updatePersonalInfo(req, res) {

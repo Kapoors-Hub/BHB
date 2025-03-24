@@ -455,7 +455,212 @@ const passController = {
                 error: error.message
             });
         }
+    },
+
+    // Award pass to hunter
+async awardPassToHunter(req, res) {
+    try {
+      const { hunterId } = req.params;
+      const { passType, count, reason } = req.body;
+      const adminId = req.admin.id;
+  
+      // Validate inputs
+      if (!passType || !['timeExtension', 'resetFoul', 'booster', 'seasonal'].includes(passType)) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'Valid pass type is required (timeExtension, resetFoul, booster, seasonal)'
+        });
+      }
+  
+      if (!count || isNaN(count) || count <= 0) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'Valid pass count is required'
+        });
+      }
+  
+      // Check if hunter exists
+      const hunter = await Hunter.findById(hunterId);
+      if (!hunter) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter not found'
+        });
+      }
+  
+      // Prepare update object
+      const updateField = `passes.${passType}.count`;
+      const update = { $inc: {} };
+      update.$inc[updateField] = count;
+  
+      // Update hunter passes
+      const updatedHunter = await Hunter.findByIdAndUpdate(
+        hunterId,
+        update,
+        { new: true }
+      );
+  
+      // Create a pass usage record
+      await Pass.create({
+        hunter: hunterId,
+        passType,
+        count,
+        status: 'awarded',
+        awardedBy: adminId,
+        awardReason: reason || 'Administrative award'
+      });
+  
+      // Create notification for hunter
+      await notificationController.createNotification({
+        hunterId: hunterId,
+        title: 'Passes Awarded',
+        message: `You've been awarded ${count} ${passType} pass${count > 1 ? 'es' : ''}${reason ? ` for: ${reason}` : ''}.`,
+        type: 'pass'
+      });
+  
+      // Log the action
+      console.log(`Admin ${adminId} awarded ${count} ${passType} passes to hunter ${hunterId}`);
+  
+      // Format pass type for display
+      const formattedPassType = passType
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase());
+  
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: `${formattedPassType} pass${count > 1 ? 'es' : ''} awarded successfully`,
+        data: {
+          hunter: {
+            id: updatedHunter._id,
+            name: updatedHunter.name,
+            username: updatedHunter.username
+          },
+          passType,
+          count,
+          newTotal: updatedHunter.passes[passType].count
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error awarding passes',
+        error: error.message
+      });
     }
+  },
+  
+  // Remove passes from hunter
+  async removePassFromHunter(req, res) {
+    try {
+      const { hunterId, passType } = req.params;
+      const { count, reason } = req.body;
+      const adminId = req.admin.id;
+  
+      // Validate pass type
+      if (!['timeExtension', 'resetFoul', 'booster', 'seasonal'].includes(passType)) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'Valid pass type is required (timeExtension, resetFoul, booster, seasonal)'
+        });
+      }
+  
+      // Validate count
+      if (!count || isNaN(count) || count <= 0) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'Valid pass count is required'
+        });
+      }
+  
+      // Check if hunter exists
+      const hunter = await Hunter.findById(hunterId);
+      if (!hunter) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter not found'
+        });
+      }
+  
+      // Check if hunter has enough passes
+      if (hunter.passes[passType].count < count) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: `Hunter only has ${hunter.passes[passType].count} ${passType} passes`
+        });
+      }
+  
+      // Prepare update object
+      const updateField = `passes.${passType}.count`;
+      const update = { $inc: {} };
+      update.$inc[updateField] = -count;
+  
+      // Update hunter passes
+      const updatedHunter = await Hunter.findByIdAndUpdate(
+        hunterId,
+        update,
+        { new: true }
+      );
+  
+      // Create a pass usage record
+      await Pass.create({
+        hunter: hunterId,
+        passType,
+        count: -count,
+        status: 'removed',
+        awardedBy: adminId,
+        awardReason: reason || 'Administrative removal'
+      });
+  
+      // Create notification for hunter
+      await notificationController.createNotification({
+        hunterId: hunterId,
+        title: 'Passes Removed',
+        message: `${count} ${passType} pass${count > 1 ? 'es have' : ' has'} been removed from your account${reason ? ` for: ${reason}` : ''}.`,
+        type: 'pass'
+      });
+  
+      // Log the action
+      console.log(`Admin ${adminId} removed ${count} ${passType} passes from hunter ${hunterId}`);
+  
+      // Format pass type for display
+      const formattedPassType = passType
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase());
+  
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: `${formattedPassType} pass${count > 1 ? 'es' : ''} removed successfully`,
+        data: {
+          hunter: {
+            id: updatedHunter._id,
+            name: updatedHunter.name,
+            username: updatedHunter.username
+          },
+          passType,
+          count,
+          remainingTotal: updatedHunter.passes[passType].count
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error removing passes',
+        error: error.message
+      });
+    }
+  }
+  
 };
 
 module.exports = passController;
