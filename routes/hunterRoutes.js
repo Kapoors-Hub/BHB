@@ -53,6 +53,7 @@ router.get('/titles/my', validateHunterToken, hunterController.getMyTitles);
 
 // Quizes
 router.get('/quizzes', validateHunterToken, hunterQuizController.getAvailableQuizzes);
+router.get('/quizzes/:quizId', validateHunterToken, hunterQuizController.getSingleQuiz); 
 router.post('/quizzes/:quizId/start', validateHunterToken, hunterQuizController.startQuiz);
 router.get('/quizzes/history', validateHunterToken, hunterQuizController.getQuizHistory);
 router.post('/quizzes/attempts/:quizAttemptId/complete', validateHunterToken, hunterQuizController.completeQuiz);

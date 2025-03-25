@@ -153,6 +153,83 @@ const hunterQuizController = {
         }
     },
 
+    // Get a single quiz by ID
+async getSingleQuiz(req, res) {
+    try {
+      const { quizId } = req.params;
+      const hunterId = req.hunter.id;
+  
+      // Find the quiz
+      const quiz = await Quiz.findById(quizId)
+        .select('-answers') // Exclude answers to prevent cheating
+        .populate('createdBy', 'username');
+  
+      if (!quiz) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Quiz not found'
+        });
+      }
+  
+      // Check if quiz is active
+      if (quiz.status !== 'active') {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'This quiz is not currently active'
+        });
+      }
+  
+      // Check if hunter has already taken this quiz
+      const quizAttempt = await QuizAttempt.findOne({
+        quiz: quizId,
+        hunter: hunterId,
+        completed: true
+      });
+  
+      const hasCompleted = !!quizAttempt;
+  
+      // Prepare questions without correct answers
+      const safeQuestions = quiz.questions.map(question => ({
+        _id: question._id,
+        text: question.text,
+        type: question.type,
+        options: question.options,
+        image: question.image,
+        points: question.points
+      }));
+  
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'Quiz retrieved successfully',
+        data: {
+          quiz: {
+            _id: quiz._id,
+            title: quiz.title,
+            description: quiz.description,
+            status: quiz.status,
+            timeLimit: quiz.timeLimit,
+            totalPoints: quiz.totalPoints,
+            questionsCount: safeQuestions.length,
+            createdBy: quiz.createdBy,
+            createdAt: quiz.createdAt,
+            hasCompleted
+          },
+          questions: hasCompleted ? [] : safeQuestions // Only include questions if not completed
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error retrieving quiz',
+        error: error.message
+      });
+    }
+  },
+
     // Get a hunter's quiz history
     async getQuizHistory(req, res) {
         try {
