@@ -232,6 +232,35 @@ passes: {
         enum: ['open', 'in-progress', 'resolved', 'closed'],
         default: 'open'
     },
+     responses: [{
+                message: {
+                    type: String,
+                    required: true
+                },
+                sender: {
+                    id: {
+                        type: mongoose.Schema.Types.ObjectId,
+                        refPath: 'issues.responses.sender.role'
+                    },
+                    role: {
+                        type: String,
+                        enum: ['Admin', 'Lord', 'Hunter']
+                    },
+                    name: String
+                },
+                attachedFiles: [{
+                    fileName: String,
+                    filePath: String,
+                    uploadedAt: {
+                        type: Date,
+                        default: Date.now
+                    }
+                }],
+                createdAt: {
+                    type: Date,
+                    default: Date.now
+                }
+            }],
     createdAt: {
         type: Date,
         default: Date.now
