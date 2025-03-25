@@ -153,7 +153,7 @@ const hunterQuizController = {
         }
     },
 
-    // Get a single quiz by ID
+// Get a single quiz by ID
 async getSingleQuiz(req, res) {
     try {
       const { quizId } = req.params;
@@ -161,7 +161,6 @@ async getSingleQuiz(req, res) {
   
       // Find the quiz
       const quiz = await Quiz.findById(quizId)
-        .select('-answers') // Exclude answers to prevent cheating
         .populate('createdBy', 'username');
   
       if (!quiz) {
@@ -173,7 +172,7 @@ async getSingleQuiz(req, res) {
       }
   
       // Check if quiz is active
-      if (quiz.status !== 'active') {
+      if (!quiz.active) {
         return res.status(400).json({
           status: 400,
           success: false,
@@ -191,14 +190,22 @@ async getSingleQuiz(req, res) {
       const hasCompleted = !!quizAttempt;
   
       // Prepare questions without correct answers
-      const safeQuestions = quiz.questions.map(question => ({
-        _id: question._id,
-        text: question.text,
-        type: question.type,
-        options: question.options,
-        image: question.image,
-        points: question.points
-      }));
+      const safeQuestions = quiz.questions.map(question => {
+        // Remove isCorrect flag from options to prevent cheating
+        const safeOptions = question.options.map(option => ({
+          _id: option._id,
+          text: option.text,
+          imageUrl: option.imageUrl
+        }));
+  
+        return {
+          _id: question._id,
+          questionText: question.questionText,
+          imageUrl: question.imageUrl,
+          options: safeOptions
+          // Exclude explanation to prevent cheating
+        };
+      });
   
       return res.status(200).json({
         status: 200,
@@ -209,10 +216,11 @@ async getSingleQuiz(req, res) {
             _id: quiz._id,
             title: quiz.title,
             description: quiz.description,
-            status: quiz.status,
-            timeLimit: quiz.timeLimit,
-            totalPoints: quiz.totalPoints,
-            questionsCount: safeQuestions.length,
+            totalQuestions: quiz.totalQuestions,
+            timeDuration: quiz.timeDuration,
+            timeLimited: quiz.timeLimited,
+            category: quiz.category,
+            active: quiz.active,
             createdBy: quiz.createdBy,
             createdAt: quiz.createdAt,
             hasCompleted
