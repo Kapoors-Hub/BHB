@@ -45,7 +45,7 @@ router.get('/issues', validateHunterToken, issueController.getMyIssues);
 router.get('/issues/:issueId', validateHunterToken, issueController.getIssue);
 router.put('/issues/:issueId', validateHunterToken, issueController.updateIssue);
 router.put('/issues/:issueId/close', validateHunterToken, issueController.closeIssue);
-router.post('/hunters/issues/:issueId/respond', validateHunterToken, issueController.addResponseToIssue);
+router.post('/issues/:issueId/respond', validateHunterToken, issueController.addResponseToIssue);
 // router.get('/public/bounties/:bountyId/rankings', bountyController.getBountyRankings);
 
 // tiitles
