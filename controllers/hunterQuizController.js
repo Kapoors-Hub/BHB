@@ -189,21 +189,14 @@ async getSingleQuiz(req, res) {
   
       const hasCompleted = !!quizAttempt;
   
-      // Prepare questions without correct answers
-      const safeQuestions = quiz.questions.map(question => {
-        // Remove isCorrect flag from options to prevent cheating
-        const safeOptions = question.options.map(option => ({
-          _id: option._id,
-          text: option.text,
-          imageUrl: option.imageUrl
-        }));
-  
+      // Include questions with their complete information
+      const questions = quiz.questions.map(question => {
         return {
           _id: question._id,
           questionText: question.questionText,
           imageUrl: question.imageUrl,
-          options: safeOptions
-          // Exclude explanation to prevent cheating
+          options: question.options, // Include all option details including isCorrect
+          explanation: question.explanation
         };
       });
   
@@ -225,7 +218,7 @@ async getSingleQuiz(req, res) {
             createdAt: quiz.createdAt,
             hasCompleted
           },
-          questions: hasCompleted ? [] : safeQuestions // Only include questions if not completed
+          questions: hasCompleted ? [] : questions // Only include questions if not completed
         }
       });
     } catch (error) {
