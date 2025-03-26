@@ -15,6 +15,8 @@ const questionSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    radio:Boolean,
+    image:Boolean,
     imageUrl: String,
     options: [optionSchema],
     explanation: String

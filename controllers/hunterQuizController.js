@@ -190,13 +190,15 @@ async getSingleQuiz(req, res) {
   
       const hasCompleted = !!quizAttempt;
   
-      // Include questions with their complete information
+      // Include questions with their complete information, including the new fields
       const questions = quiz.questions.map(question => {
         return {
           _id: question._id,
           questionText: question.questionText,
           imageUrl: question.imageUrl,
-          options: question.options, // Include all option details including isCorrect
+          radio: question.radio,       // Include the radio field
+          image: question.image,       // Include the image field
+          options: question.options,   // Include all option details including isCorrect
           explanation: question.explanation
         };
       });

@@ -5,92 +5,92 @@ const upload = require('../config/multer');
 
 const quizController = {
     // Create a new quiz
-async createQuiz(req, res) {
-    try {
-        const {
-            title,
-            description,
-            totalQuestions,
-            timeDuration,
-            timeLimited,
-            questions,
-            category
-        } = req.body;
-        
-        // Validate input
-        if (!title || !description || !questions || !category) {
-            return res.status(400).json({
-                status: 400,
-                success: false,
-                message: 'Required fields missing'
-            });
-        }
-        
-        // Validate questions
-        if (!Array.isArray(questions) || questions.length === 0) {
-            return res.status(400).json({
-                status: 400,
-                success: false,
-                message: 'Questions must be a non-empty array'
-            });
-        }
-        
-        // Validate each question has a correct option
-        for (const question of questions) {
-            if (!question.options || !Array.isArray(question.options) || question.options.length < 2) {
+    async createQuiz(req, res) {
+        try {
+            const {
+                title,
+                description,
+                totalQuestions,
+                timeDuration,
+                timeLimited,
+                questions,
+                category
+            } = req.body;
+            
+            // Validate input
+            if (!title || !description || !questions || !category) {
                 return res.status(400).json({
                     status: 400,
                     success: false,
-                    message: 'Each question must have at least 2 options'
+                    message: 'Required fields missing'
                 });
             }
             
-            const hasCorrectOption = question.options.some(option => option.isCorrect);
-            if (!hasCorrectOption) {
+            // Validate questions
+            if (!Array.isArray(questions) || questions.length === 0) {
                 return res.status(400).json({
                     status: 400,
                     success: false,
-                    message: 'Each question must have at least one correct option'
+                    message: 'Questions must be a non-empty array'
                 });
             }
+            
+            // Validate each question has a correct option and set defaults for radio and image
+            const processedQuestions = questions.map(question => {
+                // Set default values for radio and image if not provided
+                const processedQuestion = {
+                    ...question,
+                    radio: question.radio !== undefined ? question.radio : false,
+                    image: question.image !== undefined ? question.image : false
+                };
+                
+                if (!processedQuestion.options || !Array.isArray(processedQuestion.options) || processedQuestion.options.length < 2) {
+                    throw new Error('Each question must have at least 2 options');
+                }
+                
+                const hasCorrectOption = processedQuestion.options.some(option => option.isCorrect);
+                if (!hasCorrectOption) {
+                    throw new Error('Each question must have at least one correct option');
+                }
+                
+                return processedQuestion;
+            });
+            
+            // Create the quiz with processed questions
+            const quiz = await Quiz.create({
+                title,
+                description,
+                totalQuestions: processedQuestions.length,
+                timeDuration: timeDuration || 0,
+                timeLimited: timeLimited || false,
+                questions: processedQuestions,
+                category,
+                createdBy: req.admin.id
+            });
+            
+            // Calculate potential maximum XP (25 per question)
+            const maxPossibleXP = quiz.totalQuestions * 25;
+            
+            return res.status(201).json({
+                status: 201,
+                success: true,
+                message: 'Quiz created successfully',
+                data: {
+                    quizId: quiz._id,
+                    title: quiz.title,
+                    totalQuestions: quiz.totalQuestions,
+                    maxPossibleXP
+                }
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500,
+                success: false,
+                message: 'Error creating quiz',
+                error: error.message
+            });
         }
-        
-        // Create the quiz
-        const quiz = await Quiz.create({
-            title,
-            description,
-            totalQuestions: questions.length,
-            timeDuration: timeDuration || 0,
-            timeLimited: timeLimited || false,
-            questions,
-            category,
-            createdBy: req.admin.id
-        });
-        
-        // Calculate potential maximum XP (25 per question)
-        const maxPossibleXP = quiz.totalQuestions * 25;
-        
-        return res.status(201).json({
-            status: 201,
-            success: true,
-            message: 'Quiz created successfully',
-            data: {
-                quizId: quiz._id,
-                title: quiz.title,
-                totalQuestions: quiz.totalQuestions,
-                maxPossibleXP
-            }
-        });
-    } catch (error) {
-        return res.status(500).json({
-            status: 500,
-            success: false,
-            message: 'Error creating quiz',
-            error: error.message
-        });
-    }
-},
-
+    },
     // Update an existing quiz
     async updateQuiz(req, res) {
         try {
