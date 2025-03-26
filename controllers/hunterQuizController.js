@@ -275,28 +275,35 @@ async getSingleQuiz(req, res) {
         }
     },
 
-
     async completeQuiz(req, res) {
         try {
             const { quizAttemptId } = req.params;
             const { answers } = req.body;
             const hunterId = req.hunter.id;
-
-            // Find the attempt
+    
+            // Find the attempt with more lenient conditions for better error handling
             const attempt = await QuizAttempt.findOne({
                 _id: quizAttemptId,
-                hunter: hunterId,
-                completedAt: { $exists: false }  // Not already completed
+                hunter: hunterId
             });
-
+    
             if (!attempt) {
                 return res.status(404).json({
                     status: 404,
                     success: false,
-                    message: 'Active quiz attempt not found'
+                    message: 'Quiz attempt not found'
                 });
             }
-
+    
+            // Check if already completed
+            if (attempt.completedAt) {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    message: 'Quiz attempt already completed'
+                });
+            }
+    
             // Get the quiz
             const quiz = await Quiz.findById(attempt.quiz);
             if (!quiz) {
@@ -306,31 +313,31 @@ async getSingleQuiz(req, res) {
                     message: 'Quiz not found'
                 });
             }
-
+    
             // Process answers
             let correctAnswers = 0;
             const processedAnswers = [];
-
+    
             // Validate and process each answer
             for (const answer of answers) {
                 const { questionId, selectedOptionIds } = answer;
-
+    
                 // Find the question
                 const question = quiz.questions.id(questionId);
                 if (!question) continue;
-
+    
                 // Check if answer is correct
                 const correctOptionIds = question.options
                     .filter(opt => opt.isCorrect)
                     .map(opt => opt._id.toString());
-
+    
                 // Simple check - arrays must match exactly (for multiple correct answers)
                 const isCorrect =
                     selectedOptionIds.length === correctOptionIds.length &&
                     selectedOptionIds.every(id => correctOptionIds.includes(id));
-
+    
                 if (isCorrect) correctAnswers++;
-
+    
                 processedAnswers.push({
                     questionId,
                     selectedOptions: selectedOptionIds,
@@ -338,22 +345,52 @@ async getSingleQuiz(req, res) {
                     pointsEarned: isCorrect ? 25 : 0  // 25 points per correct answer
                 });
             }
-
+    
             // Update the attempt
             attempt.answers = processedAnswers;
             attempt.completedAt = new Date();
             attempt.correctAnswers = correctAnswers;
             attempt.totalQuestions = quiz.totalQuestions;
             attempt.xpEarned = correctAnswers * 25;  // 25 XP per correct answer
-
+    
             await attempt.save();
-
-            // Update hunter's XP
-            await Hunter.findByIdAndUpdate(
-                hunterId,
-                { $inc: { xp: attempt.xpEarned } }
-            );
-
+    
+            // Get hunter before XP update to track level changes
+            const hunterBefore = await Hunter.findById(hunterId);
+            const previousLevel = {
+                tier: hunterBefore.level.tier,
+                rank: hunterBefore.level.rank
+            };
+            const previousXP = hunterBefore.xp;
+    
+            // Update hunter's XP and trigger level update through save (not findByIdAndUpdate)
+            hunterBefore.xp += attempt.xpEarned;
+            await hunterBefore.save(); // This will trigger the pre-save hook to update level
+    
+            // Get updated hunter to check new level
+            const hunterAfter = await Hunter.findById(hunterId);
+            const levelChanged = 
+                previousLevel.tier !== hunterAfter.level.tier || 
+                previousLevel.rank !== hunterAfter.level.rank;
+    
+            // Create notification for quiz completion
+            await notificationController.createNotification({
+                hunterId: hunterId,
+                title: 'Quiz Completed',
+                message: `You've completed "${quiz.title}" quiz and earned ${attempt.xpEarned} XP.`,
+                type: 'quiz'
+            });
+    
+            // Send level up notification if applicable
+            if (levelChanged) {
+                await notificationController.createNotification({
+                    hunterId: hunterId,
+                    title: 'Level Up',
+                    message: `Congratulations! You've reached ${hunterAfter.level.tier} ${hunterAfter.level.rank}.`,
+                    type: 'level'
+                });
+            }
+    
             return res.status(200).json({
                 status: 200,
                 success: true,
@@ -363,10 +400,19 @@ async getSingleQuiz(req, res) {
                     totalQuestions: quiz.totalQuestions,
                     percentageScore: Math.round((correctAnswers / quiz.totalQuestions) * 100),
                     xpEarned: attempt.xpEarned,
-                    timeTaken: attempt.timeSpent
+                    timeTaken: attempt.timeSpent,
+                    previousXP,
+                    newXP: hunterAfter.xp,
+                    previousLevel,
+                    newLevel: {
+                        tier: hunterAfter.level.tier,
+                        rank: hunterAfter.level.rank
+                    },
+                    levelChanged
                 }
             });
         } catch (error) {
+            console.error('Error completing quiz:', error);
             return res.status(500).json({
                 status: 500,
                 success: false,
@@ -375,6 +421,106 @@ async getSingleQuiz(req, res) {
             });
         }
     }
+
+    // async completeQuiz(req, res) {
+    //     try {
+    //         const { quizAttemptId } = req.params;
+    //         const { answers } = req.body;
+    //         const hunterId = req.hunter.id;
+    //         console.log(quizAttemptId)
+    //         // Find the attempt
+    //         const attempt = await QuizAttempt.findOne({
+    //             _id: quizAttemptId,
+    //             hunter: hunterId,
+    //             completedAt: { $exists: false }  // Not already completed
+    //         });
+
+    //         if (!attempt) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Active quiz attempt not found'
+    //             });
+    //         }
+
+    //         // Get the quiz
+    //         const quiz = await Quiz.findById(attempt.quiz);
+    //         if (!quiz) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Quiz not found'
+    //             });
+    //         }
+
+    //         // Process answers
+    //         let correctAnswers = 0;
+    //         const processedAnswers = [];
+
+    //         // Validate and process each answer
+    //         for (const answer of answers) {
+    //             const { questionId, selectedOptionIds } = answer;
+
+    //             // Find the question
+    //             const question = quiz.questions.id(questionId);
+    //             if (!question) continue;
+
+    //             // Check if answer is correct
+    //             const correctOptionIds = question.options
+    //                 .filter(opt => opt.isCorrect)
+    //                 .map(opt => opt._id.toString());
+
+    //             // Simple check - arrays must match exactly (for multiple correct answers)
+    //             const isCorrect =
+    //                 selectedOptionIds.length === correctOptionIds.length &&
+    //                 selectedOptionIds.every(id => correctOptionIds.includes(id));
+
+    //             if (isCorrect) correctAnswers++;
+
+    //             processedAnswers.push({
+    //                 questionId,
+    //                 selectedOptions: selectedOptionIds,
+    //                 isCorrect,
+    //                 pointsEarned: isCorrect ? 25 : 0  // 25 points per correct answer
+    //             });
+    //         }
+
+    //         // Update the attempt
+    //         attempt.answers = processedAnswers;
+    //         attempt.completedAt = new Date();
+    //         attempt.correctAnswers = correctAnswers;
+    //         attempt.totalQuestions = quiz.totalQuestions;
+    //         attempt.xpEarned = correctAnswers * 25;  // 25 XP per correct answer
+
+    //         await attempt.save();
+
+    //         // Update hunter's XP
+    //         await Hunter.findByIdAndUpdate(
+    //             hunterId,
+    //             { $inc: { xp: attempt.xpEarned } }
+    //         );
+
+    //         return res.status(200).json({
+    //             status: 200,
+    //             success: true,
+    //             message: 'Quiz completed successfully',
+    //             data: {
+    //                 correctAnswers,
+    //                 totalQuestions: quiz.totalQuestions,
+    //                 percentageScore: Math.round((correctAnswers / quiz.totalQuestions) * 100),
+    //                 xpEarned: attempt.xpEarned,
+    //                 timeTaken: attempt.timeSpent
+    //             }
+    //         });
+    //     } catch (error) {
+    //         return res.status(500).json({
+    //             status: 500,
+    //             success: false,
+    //             message: 'Error completing quiz',
+    //             error: error.message
+    //         });
+    //     }
+    // }
 }
 
 module.exports = hunterQuizController;
