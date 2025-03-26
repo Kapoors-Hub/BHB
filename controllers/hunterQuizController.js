@@ -2,6 +2,7 @@
 const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
 const Hunter = require('../models/Hunter');
+const notificationController = require('./notificationController');
 
 const hunterQuizController = {
     // Start a new quiz attempt
