@@ -5,6 +5,7 @@ const { checkAndAwardBadges } = require('../services/badgeService');
 const { calculateReviewXP, updateHunterXP } = require('../services/xpService');
 const passController = require("./passController");
 const performanceCalculator = require('../utils/performanceCalculator');
+const notificationController = require('./notificationController');
 
 const bountyController = {
     // Create new bounty
