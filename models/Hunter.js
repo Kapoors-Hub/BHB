@@ -65,6 +65,10 @@ const hunterSchema = new mongoose.Schema({
   placeOfResidence: {
     type: String
   },
+  wallet: {
+    type: Number,
+    default: 0
+  },
   xp: {
     type: Number,
     default: 375
@@ -113,61 +117,61 @@ const hunterSchema = new mongoose.Schema({
     }
   }],
   // Add to Hunter schema
-titles: [{
-  title: {
+  titles: [{
+    title: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Title'
-  },
-  awardedAt: {
+    },
+    awardedAt: {
       type: Date,
       default: Date.now
-  },
-  validUntil: {
+    },
+    validUntil: {
       type: Date,
       required: true
-  },
-  awardedBy: {
+    },
+    awardedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin'
-  }
-}],
-// Update Hunter model to include passes
-passes: {
-  timeExtension: {
+    }
+  }],
+  // Update Hunter model to include passes
+  passes: {
+    timeExtension: {
       count: {
-          type: Number,
-          default: 1  // One pass received every month
+        type: Number,
+        default: 1  // One pass received every month
       },
       lastResetDate: {
-          type: Date,
-          default: Date.now
+        type: Date,
+        default: Date.now
       }
-  },
-  resetFoul: {
+    },
+    resetFoul: {
       count: {
-          type: Number,
-          default: 0  // Earned on winning a bounty
+        type: Number,
+        default: 0  // Earned on winning a bounty
       }
-  },
-  booster: {
+    },
+    booster: {
       count: {
-          type: Number,
-          default: 0  // Earned on 2 consecutive wins
+        type: Number,
+        default: 0  // Earned on 2 consecutive wins
       }
-  },
-  seasonal: {
+    },
+    seasonal: {
       count: {
-          type: Number,
-          default: 0  // Received by top performers at season end
+        type: Number,
+        default: 0  // Received by top performers at season end
       },
       lastAwarded: Date
-  },
-  // Track consecutive wins for booster pass
-  consecutiveWins: {
+    },
+    // Track consecutive wins for booster pass
+    consecutiveWins: {
       type: Number,
       default: 0
-  }
-},
+    }
+  },
   achievements: {
     bountiesWon: {
       count: { type: Number, default: 0 },
@@ -211,67 +215,67 @@ passes: {
   },
   issues: [{
     type: {
-        type: String,
-        required: [true, 'Issue type is required'],
-        enum: ['Technical Issue ', 'Payment Issue',  'Project and Work Submission', 'Other', "Account & Profile", "Hunter/Lord Behavior", "General Inquiry"]
+      type: String,
+      required: [true, 'Issue type is required'],
+      enum: ['Technical Issue ', 'Payment Issue', 'Project and Work Submission', 'Other', "Account & Profile", "Hunter/Lord Behavior", "General Inquiry"]
     },
     query: {
-        type: String,
-        required: [true, 'Query description is required']
+      type: String,
+      required: [true, 'Query description is required']
     },
     attachedFiles: [{
+      fileName: String,
+      filePath: String,
+      uploadedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    status: {
+      type: String,
+      enum: ['open', 'in-progress', 'resolved', 'closed'],
+      default: 'open'
+    },
+    responses: [{
+      message: {
+        type: String,
+        required: true
+      },
+      sender: {
+        id: {
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: 'issues.responses.sender.role'
+        },
+        role: {
+          type: String,
+          enum: ['Admin', 'Lord', 'Hunter']
+        },
+        name: String
+      },
+      attachedFiles: [{
         fileName: String,
         filePath: String,
         uploadedAt: {
-            type: Date,
-            default: Date.now
+          type: Date,
+          default: Date.now
         }
-    }],
-    status: {
-        type: String,
-        enum: ['open', 'in-progress', 'resolved', 'closed'],
-        default: 'open'
-    },
-     responses: [{
-                message: {
-                    type: String,
-                    required: true
-                },
-                sender: {
-                    id: {
-                        type: mongoose.Schema.Types.ObjectId,
-                        refPath: 'issues.responses.sender.role'
-                    },
-                    role: {
-                        type: String,
-                        enum: ['Admin', 'Lord', 'Hunter']
-                    },
-                    name: String
-                },
-                attachedFiles: [{
-                    fileName: String,
-                    filePath: String,
-                    uploadedAt: {
-                        type: Date,
-                        default: Date.now
-                    }
-                }],
-                createdAt: {
-                    type: Date,
-                    default: Date.now
-                }
-            }],
-    createdAt: {
+      }],
+      createdAt: {
         type: Date,
         default: Date.now
+      }
+    }],
+    createdAt: {
+      type: Date,
+      default: Date.now
     },
     resolvedAt: Date,
     adminResponse: String,
     adminId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Admin'
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin'
     }
-}],
+  }],
   otp: {
     code: String,
     expiresAt: Date
@@ -364,6 +368,13 @@ hunterSchema.methods.updateLevel = function () {
   this.level.tier = tier;
   this.level.rank = rank;
 };
+
+hunterSchema.pre('save', function (next) {
+  if (this.isModified('xp')) {
+    this.updateLevel();
+  }
+  next();
+});
 
 hunterSchema.pre('save', function (next) {
   if (this.isModified('xp')) {
