@@ -8,7 +8,7 @@ const notificationController = require('../controllers/notificationController');
  * @param {string} bountyId - Bounty ID 
  * @param {number} rank - Hunter's rank in the bounty
  */
-exports.calculatePerformanceScore = async (hunterId, bountyId, rank) => {
+exports.calculatePerformanceScore = async (hunterId, bountyId, rank,xpEarned) => {
   try {
     // Retrieve hunter data
     const hunter = await Hunter.findById(hunterId);
@@ -31,8 +31,8 @@ exports.calculatePerformanceScore = async (hunterId, bountyId, rank) => {
 
     // 1. Calculate XP Modifier (XPM)
     const maxXP = 2500; // as per your formula
-    const xpm = Math.min(hunter.xp / maxXP, 1); // capped at 1
-    
+    const xpm = Math.min(xpEarned / maxXP,1); // capped at 1
+    console.log("------->",hunter.xp)
     // 2. Calculate Rank Modifier (RM)
     const rm = (totalHunters - rank + 1) / totalHunters;
     
@@ -65,7 +65,7 @@ exports.calculatePerformanceScore = async (hunterId, bountyId, rank) => {
     
     // Calculate performance score with weights: 34(XPM) + 33(RM) + 33(CDM)
     const performanceScore = (0.34 * xpm + 0.33 * rm + 0.33 * cdm) * 100; // Multiply by 100 to get a 0-100 scale
-    
+    console.log(performanceScore,xpm,rm,cdm)
     // Round to 2 decimal places
     const roundedScore = Math.round(performanceScore * 100) / 100;
     
@@ -95,13 +95,13 @@ exports.calculatePerformanceScore = async (hunterId, bountyId, rank) => {
     const averageScore = hunter.performance.totalBountiesCalculated > 0 
       ? totalScore / hunter.performance.totalBountiesCalculated 
       : roundedScore;
-    
+    console.log(averageScore)
     // Update average score
     hunter.performance.score = Math.round(averageScore * 100) / 100;
     
     // Save hunter
     await hunter.save();
-    
+    console.log(hunter.performance.score)
     // Send notification to hunter about new performance score
     await notificationController.createNotification({
       hunterId: hunterId,

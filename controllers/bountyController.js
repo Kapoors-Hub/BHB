@@ -873,7 +873,8 @@ const bountyController = {
                     await performanceCalculator.calculatePerformanceScore(
                         hunter._id.toString(),
                         bountyId,
-                        rank
+                        rank,
+                        xpEarned
                     );
                 }
 
