@@ -6,6 +6,7 @@ const { calculateReviewXP, updateHunterXP } = require('../services/xpService');
 const passController = require("./passController");
 const performanceCalculator = require('../utils/performanceCalculator');
 const notificationController = require('./notificationController');
+const transactionService = require('../services/transactionService');
 
 const bountyController = {
     // Create new bounty
@@ -874,6 +875,38 @@ const bountyController = {
                         bountyId,
                         rank
                     );
+                }
+
+                // Create wallet transaction for winner
+                if (rank === 1 && bounty.rewardPrize > 0) {
+                    // Add the prize money to the winner's wallet
+                    await transactionService.createTransaction({
+                        hunterId: hunter._id,
+                        amount: bounty.rewardPrize,
+                        type: 'credit',
+                        category: 'bounty',
+                        description: `Winner reward for bounty: ${bounty.title}`,
+                        reference: bountyId,
+                        referenceModel: 'Bounty',
+                        initiatedBy: {
+                            id: lordId,
+                            role: 'Lord'
+                        },
+                        metaData: {
+                            rank: 1,
+                            totalParticipants: sortedParticipants.length
+                        }
+                    });
+
+                    // Add a notification about the wallet credit
+                    await notificationController.createNotification({
+                        hunterId: hunter._id,
+                        title: 'Reward Received',
+                        message: `You've received ${bounty.rewardPrize} for winning the bounty "${bounty.title}"`,
+                        type: 'bounty',
+                        relatedItem: bountyId,
+                        itemModel: 'Bounty'
+                    });
                 }
 
                 // Update review status to published

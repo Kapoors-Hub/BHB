@@ -79,7 +79,7 @@ const titleController = {
                     message: 'Title not found or inactive'
                 });
             }
-
+            console.log(hunterId)
             // Check if hunter exists
             const hunter = await Hunter.findById(hunterId);
             if (!hunter) {

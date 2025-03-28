@@ -6,10 +6,12 @@ const issueController = require('../controllers/issueController');
 const hunterQuizController = require('../controllers/hunterQuizController');
 const hunterBountyController = require('../controllers/hunterBountyController');
 const passController = require('../controllers/passController');
+const transactionController = require('../controllers/transactionController');
 const notificationController = require('../controllers/notificationController');
 const { validateHunterRegistration } = require('../middleware/validation');
 const { validateHunterToken } = require('../middleware/hunterAuth');
 const upload = require('../config/multer');
+const withdrawalController = require('../controllers/withdrawalController');
 
 router.post('/register', validateHunterRegistration, hunterController.register);
 router.post('/verify-otp', hunterController.verifyOTP);
@@ -70,6 +72,13 @@ router.get('/notifications/unread-count', validateHunterToken, notificationContr
 router.put('/notifications/:notificationId', validateHunterToken, notificationController.updateNotificationStatus);
 
 router.get('/performance', validateHunterToken, hunterController.getMyPerformance);
+
+router.get('/wallet', validateHunterToken, transactionController.getMyWallet);
+router.get('/transactions', validateHunterToken, transactionController.getMyTransactions);
+
+router.post('/withdrawals', validateHunterToken, withdrawalController.requestWithdrawal);
+router.get('/withdrawals', validateHunterToken, withdrawalController.getMyWithdrawalRequests);
+router.put('/withdrawals/:requestId/cancel', validateHunterToken, withdrawalController.cancelWithdrawalRequest);
 
 module.exports = router;
 

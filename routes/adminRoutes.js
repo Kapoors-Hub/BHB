@@ -9,6 +9,8 @@ const quizController = require('../controllers/quizController');
 const foulController = require('../controllers/foulController');
 const passController = require('../controllers/passController')
 const { validateAdmin } = require('../middleware/auth');
+const transactionController = require('../controllers/transactionController');
+const withdrawalController = require('../controllers/withdrawalController');
 
 router.post('/login', adminController.login);
 router.post('/register', validateAdmin, adminController.registerAdmin);
@@ -23,9 +25,9 @@ router.delete('/hunters/:hunterId', validateAdmin, adminController.deleteHunter)
 // Badges
 router.post('/badges', validateAdmin, badgeController.createBadge);
 router.put('/badges/:badgeId', validateAdmin, badgeController.updateBadge);
-router.get('/badges', validateAdmin , badgeController.getAllBadges);
-router.get('/badges/:badgeId', validateAdmin , badgeController.getBadgeById);
-router.get('/hunters/:hunterId/badges', validateAdmin , badgeController.getHunterBadges);
+router.get('/badges', validateAdmin, badgeController.getAllBadges);
+router.get('/badges/:badgeId', validateAdmin, badgeController.getBadgeById);
+router.get('/hunters/:hunterId/badges', validateAdmin, badgeController.getHunterBadges);
 // New route for awarding badges to hunters
 router.post('/hunters/:hunterId/badges', validateAdmin, badgeController.awardBadgeToHunter);
 // New route for revoking badges from hunters
@@ -80,5 +82,13 @@ router.delete('/hunters/:hunterId/passes/:passType', validateAdmin, passControll
 // XP management routes
 // router.post('/hunters/:hunterId/xp', validateAdmin, adminController.adjustHunterXP);
 // router.get('/hunters/:hunterId/xp-history', validateAdmin, adminController.getHunterXPHistory);
+
+//transaction routes
+router.post('/hunters/wallet/add', validateAdmin, transactionController.addFunds);
+router.post('/hunters/wallet/deduct', validateAdmin, transactionController.deductFunds);
+router.get('/hunters/:hunterId/transactions', validateAdmin, transactionController.getHunterTransactions);
+
+router.get('/withdrawals', validateAdmin, withdrawalController.getAllWithdrawalRequests);
+router.put('/withdrawals/:requestId/process', validateAdmin, withdrawalController.processWithdrawalRequest);
 
 module.exports = router;
