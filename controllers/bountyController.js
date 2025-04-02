@@ -1625,15 +1625,18 @@ const bountyController = {
         try {
             const { bountyId } = req.params;
             const lordId = req.lord.id;
-
+    
             const bounty = await Bounty.findOne({
                 _id: bountyId,
                 createdBy: lordId
             }).populate({
                 path: 'evaluatedHunters',
                 select: 'username name'
+            }).populate({
+                path: 'participants.hunter',
+                select: 'username name'
             });
-
+    
             if (!bounty) {
                 return res.status(404).json({
                     status: 404,
@@ -1641,35 +1644,33 @@ const bountyController = {
                     message: 'Bounty not found or you do not have permission'
                 });
             }
-
-            // Get reviewed participants sorted by score
-            const reviewedParticipants = bounty.participants.filter(
-                p => p.submission && p.submission.review
-            ).sort(
+    
+            // Get only participants that have been properly evaluated
+            const validEvaluatedParticipants = bounty.participants.filter(p => 
+                p.submission && 
+                p.submission.review && 
+                p.submission.review.totalScore !== undefined &&
+                bounty.evaluatedHunters.some(h => h._id.toString() === p.hunter._id.toString())
+            );
+    
+            // Sort by score
+            const sortedEvaluatedParticipants = validEvaluatedParticipants.sort(
                 (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
             );
-
+    
             // Format evaluated submissions
-            const evaluatedSubmissions = [];
-            for (let i = 0; i < reviewedParticipants.length; i++) {
-                const participant = reviewedParticipants[i];
-                const hunter = bounty.evaluatedHunters.find(
-                    h => h._id.toString() === participant.hunter.toString()
-                );
-
-                if (hunter) {
-                    evaluatedSubmissions.push({
-                        hunterId: hunter._id,
-                        username: hunter.username,
-                        name: hunter.name,
-                        files: participant.submission.files,
-                        rank: i + 1,
-                        score: participant.submission.review.totalScore,
-                        shortlisted: bounty.shortlistedHunters.includes(hunter._id)
-                    });
-                }
-            }
-
+            const evaluatedSubmissions = sortedEvaluatedParticipants.map((participant, index) => ({
+                hunterId: participant.hunter._id,
+                username: participant.hunter.username,
+                name: participant.hunter.name,
+                files: participant.submission.files,
+                rank: index + 1,
+                score: participant.submission.review.totalScore,
+                shortlisted: bounty.shortlistedHunters.some(
+                    id => id.toString() === participant.hunter._id.toString()
+                )
+            }));
+    
             return res.status(200).json({
                 status: 200,
                 success: true,
