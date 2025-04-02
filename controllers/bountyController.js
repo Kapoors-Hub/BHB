@@ -7,6 +7,8 @@ const passController = require("./passController");
 const performanceCalculator = require('../utils/performanceCalculator');
 const notificationController = require('./notificationController');
 const transactionService = require('../services/transactionService');
+const Foul = require('../models/Foul');
+const FoulRecord = require('../models/FoulRecord');
 
 const bountyController = {
     // Create new bounty
