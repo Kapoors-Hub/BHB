@@ -6,14 +6,13 @@ const transactionService = require('../services/transactionService');
 const notificationController = require('./notificationController');
 
 const withdrawalController = {
-  // Hunter methods
   
   // Request a withdrawal
   async requestWithdrawal(req, res) {
     try {
       const hunterId = req.hunter.id;
       const { amount, bankAccount, upiId, paymentMethod, remarks } = req.body;
-      
+      console.log(amount)
       // Validate amount
       if (!amount || amount <= 0) {
         return res.status(400).json({
@@ -80,7 +79,24 @@ const withdrawalController = {
         });
       }
       
-      // Create withdrawal request
+      // Create a pending transaction first
+      const pendingTransaction = await transactionService.createTransaction({
+        hunterId: hunterId,
+        amount: amount,
+        type: 'debit',
+        status: 'pending',
+        category: 'withdrawal',
+        description: `Withdrawal request via ${paymentMethod}`,
+        initiatedBy: {
+          id: hunterId,
+          role: 'Hunter'
+        },
+        metaData: {
+          paymentMethod: paymentMethod
+        }
+      });
+      
+      // Create withdrawal request with transaction reference
       const withdrawalRequest = await WithdrawalRequest.create({
         hunter: hunterId,
         amount,
@@ -88,17 +104,34 @@ const withdrawalController = {
         upiId,
         paymentMethod,
         remarks,
-        requestedAt: new Date()
+        requestedAt: new Date(),
+        transactionId: pendingTransaction._id
       });
       
-      // Create notification for admin (if you have an admin notification system)
-      // ...
+      // Update transaction with withdrawal request reference
+      await Transaction.findByIdAndUpdate(pendingTransaction._id, {
+        metaData: {
+          ...pendingTransaction.metaData,
+          withdrawalRequestId: withdrawalRequest._id
+        }
+      });
+      
+      // Create notification
+      await notificationController.createNotification({
+        hunterId: hunterId,
+        title: 'Withdrawal Request Submitted',
+        message: `Your withdrawal request for ${amount} has been submitted and is pending approval.`,
+        type: 'system'
+      });
       
       return res.status(201).json({
         status: 201,
         success: true,
         message: 'Withdrawal request submitted successfully',
-        data: withdrawalRequest
+        data: {
+          withdrawalRequest,
+          transaction: pendingTransaction
+        }
       });
     } catch (error) {
       return res.status(500).json({
@@ -109,7 +142,7 @@ const withdrawalController = {
       });
     }
   },
-  
+
   // Get my withdrawal requests
   async getMyWithdrawalRequests(req, res) {
     try {
@@ -243,7 +276,7 @@ const withdrawalController = {
       const { requestId } = req.params;
       const { status, adminNotes } = req.body;
       const adminId = req.admin.id;
-      
+ 
       // Validate status
       if (!status || !['approved', 'rejected', 'processing', 'completed'].includes(status)) {
         return res.status(400).json({
@@ -265,6 +298,12 @@ const withdrawalController = {
         });
       }
       
+      // Check if a transaction already exists for this request
+      let transaction = null;
+      if (withdrawalRequest.transactionId) {
+        transaction = await Transaction.findById(withdrawalRequest.transactionId);
+      }
+      
       // Process based on new status
       if (status === 'completed' || status === 'approved') {
         // Check if hunter has sufficient balance
@@ -282,29 +321,48 @@ const withdrawalController = {
           });
         }
         
-        // Create transaction record for the withdrawal
-        const transaction = await transactionService.createTransaction({
-          hunterId: withdrawalRequest.hunter._id,
-          amount: withdrawalRequest.amount,
-          type: 'debit',
-          category: 'withdrawal',
-          description: `Withdrawal via ${withdrawalRequest.paymentMethod}`,
-          initiatedBy: {
-            id: adminId,
-            role: 'Admin'
-          },
-          metaData: {
-            withdrawalRequestId: withdrawalRequest._id,
-            paymentMethod: withdrawalRequest.paymentMethod
-          }
-        });
+        // If transaction doesn't exist, create one; otherwise update the existing one
+        if (!transaction) {
+          transaction = await transactionService.createTransaction({
+            hunterId: withdrawalRequest.hunter._id,
+            amount: withdrawalRequest.amount,
+            type: 'debit',
+            status: status === 'completed' ? 'completed' : 'processing',
+            category: 'withdrawal',
+            description: `Withdrawal via ${withdrawalRequest.paymentMethod}`,
+            initiatedBy: {
+              id: adminId,
+              role: 'Admin'
+            },
+            metaData: {
+              withdrawalRequestId: withdrawalRequest._id,
+              paymentMethod: withdrawalRequest.paymentMethod
+            }
+          });
+          
+          // Link the transaction to the withdrawal request
+          withdrawalRequest.transactionId = transaction._id;
+        } else {
+          // Update existing transaction
+          transaction.status = status === 'completed' ? 'completed' : 'processing';
+          transaction.processedBy = adminId;
+          transaction.processedAt = new Date();
+          await transaction.save();
+        }
+        
+        // If completed, deduct from wallet
+        if (status === 'completed') {
+          await Hunter.findByIdAndUpdate(
+            withdrawalRequest.hunter._id,
+            { $inc: { wallet: -withdrawalRequest.amount } }
+          );
+        }
         
         // Update withdrawal request
         withdrawalRequest.status = status;
         withdrawalRequest.processedAt = new Date();
         withdrawalRequest.processedBy = adminId;
         withdrawalRequest.adminNotes = adminNotes;
-        withdrawalRequest.transactionId = transaction._id;
         
         // Send notification to hunter
         await notificationController.createNotification({
@@ -313,36 +371,64 @@ const withdrawalController = {
           message: `Your withdrawal request for ${withdrawalRequest.amount} has been ${status}. ${adminNotes || ''}`,
           type: 'system'
         });
-      } else {
-        // Just update the status without financial transaction
+      } else if (status === 'rejected') {
+        // If transaction exists, mark it as canceled
+        if (transaction) {
+          transaction.status = 'canceled';
+          transaction.processedBy = adminId;
+          transaction.processedAt = new Date();
+          await transaction.save();
+        }
+        
+        // Update withdrawal request
         withdrawalRequest.status = status;
         withdrawalRequest.processedAt = new Date();
         withdrawalRequest.processedBy = adminId;
         withdrawalRequest.adminNotes = adminNotes;
         
         // Send notification to hunter
-        let notificationMessage = '';
-        if (status === 'rejected') {
-          notificationMessage = `Your withdrawal request for ${withdrawalRequest.amount} has been rejected. ${adminNotes || ''}`;
-        } else {
-          notificationMessage = `Your withdrawal request for ${withdrawalRequest.amount} is now ${status}. ${adminNotes || ''}`;
+        await notificationController.createNotification({
+          hunterId: withdrawalRequest.hunter._id,
+          title: 'Withdrawal Request Rejected',
+          message: `Your withdrawal request for ${withdrawalRequest.amount} has been rejected. ${adminNotes || ''}`,
+          type: 'system'
+        });
+      } else {
+        // For other statuses (like 'processing')
+        // If transaction exists, update its status
+        if (transaction) {
+          transaction.status = status;
+          transaction.processedBy = adminId;
+          transaction.processedAt = new Date();
+          await transaction.save();
         }
         
+        // Update withdrawal request
+        withdrawalRequest.status = status;
+        withdrawalRequest.processedAt = new Date();
+        withdrawalRequest.processedBy = adminId;
+        withdrawalRequest.adminNotes = adminNotes;
+        
+        // Send notification to hunter
         await notificationController.createNotification({
           hunterId: withdrawalRequest.hunter._id,
           title: 'Withdrawal Request ' + status.charAt(0).toUpperCase() + status.slice(1),
-          message: notificationMessage,
+          message: `Your withdrawal request for ${withdrawalRequest.amount} is now ${status}. ${adminNotes || ''}`,
           type: 'system'
         });
       }
       
+      // Save the updated withdrawal request
       await withdrawalRequest.save();
       
       return res.status(200).json({
         status: 200,
         success: true,
         message: `Withdrawal request ${status} successfully`,
-        data: withdrawalRequest
+        data: {
+          withdrawalRequest,
+          transaction
+        }
       });
     } catch (error) {
       return res.status(500).json({
@@ -353,6 +439,7 @@ const withdrawalController = {
       });
     }
   }
+  
 };
 
 module.exports = withdrawalController;

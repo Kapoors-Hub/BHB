@@ -148,86 +148,86 @@ const passController = {
     },
     
     // Use reset foul pass
-    async useResetFoulPass(req, res) {
-        try {
-            const { foulRecordId } = req.params;
-            const hunterId = req.hunter.id;
+    // async useResetFoulPass(req, res) {
+    //     try {
+    //         const { foulRecordId } = req.params;
+    //         const hunterId = req.hunter.id;
             
-            const hunter = await Hunter.findById(hunterId);
-            if (!hunter) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Hunter not found'
-                });
-            }
+    //         const hunter = await Hunter.findById(hunterId);
+    //         if (!hunter) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Hunter not found'
+    //             });
+    //         }
             
-            // Check if hunter has a reset foul pass
-            if (hunter.passes.resetFoul.count <= 0) {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: 'No reset foul passes available'
-                });
-            }
+    //         // Check if hunter has a reset foul pass
+    //         if (hunter.passes.resetFoul.count <= 0) {
+    //             return res.status(400).json({
+    //                 status: 400,
+    //                 success: false,
+    //                 message: 'No reset foul passes available'
+    //             });
+    //         }
             
-            // Check if foul record exists and belongs to hunter
-            const foulRecord = await FoulRecord.findOne({
-                _id: foulRecordId,
-                hunter: hunterId
-            }).populate('foul', 'name xpPenaltyPercentage');
+    //         // Check if foul record exists and belongs to hunter
+    //         const foulRecord = await FoulRecord.findOne({
+    //             _id: foulRecordId,
+    //             hunter: hunterId
+    //         }).populate('foul', 'name xpPenaltyPercentage');
             
-            if (!foulRecord) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Foul record not found or does not belong to you'
-                });
-            }
+    //         if (!foulRecord) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Foul record not found or does not belong to you'
+    //             });
+    //         }
             
-            // Use the pass
-            await Hunter.findByIdAndUpdate(hunterId, {
-                $inc: { 
-                    'passes.resetFoul.count': -1,
-                    'xp': foulRecord.xpPenalty // Restore the XP that was deducted
-                }
-            });
+    //         // Use the pass
+    //         await Hunter.findByIdAndUpdate(hunterId, {
+    //             $inc: { 
+    //                 'passes.resetFoul.count': -1,
+    //                 'xp': foulRecord.xpPenalty // Restore the XP that was deducted
+    //             }
+    //         });
             
-            // Mark foul as reset
-            await FoulRecord.findByIdAndUpdate(foulRecordId, {
-                $set: {
-                    reset: true,
-                    resetDate: new Date()
-                }
-            });
+    //         // Mark foul as reset
+    //         await FoulRecord.findByIdAndUpdate(foulRecordId, {
+    //             $set: {
+    //                 reset: true,
+    //                 resetDate: new Date()
+    //             }
+    //         });
             
-            // Create pass usage record
-            const passRecord = await Pass.create({
-                hunter: hunterId,
-                passType: 'resetFoul',
-                relatedFoul: foulRecordId,
-                status: 'completed'
-            });
+    //         // Create pass usage record
+    //         const passRecord = await Pass.create({
+    //             hunter: hunterId,
+    //             passType: 'resetFoul',
+    //             relatedFoul: foulRecordId,
+    //             status: 'completed'
+    //         });
             
-            return res.status(200).json({
-                status: 200,
-                success: true,
-                message: 'Foul reset pass used successfully',
-                data: {
-                    foulName: foulRecord.foul.name,
-                    xpRestored: foulRecord.xpPenalty,
-                    remainingPasses: hunter.passes.resetFoul.count - 1
-                }
-            });
-        } catch (error) {
-            return res.status(500).json({
-                status: 500,
-                success: false,
-                message: 'Error using reset foul pass',
-                error: error.message
-            });
-        }
-    },
+    //         return res.status(200).json({
+    //             status: 200,
+    //             success: true,
+    //             message: 'Foul reset pass used successfully',
+    //             data: {
+    //                 foulName: foulRecord.foul.name,
+    //                 xpRestored: foulRecord.xpPenalty,
+    //                 remainingPasses: hunter.passes.resetFoul.count - 1
+    //             }
+    //         });
+    //     } catch (error) {
+    //         return res.status(500).json({
+    //             status: 500,
+    //             success: false,
+    //             message: 'Error using reset foul pass',
+    //             error: error.message
+    //         });
+    //     }
+    // },
     
     // Use booster pass
     async useBoosterPass(req, res) {
@@ -659,7 +659,94 @@ async awardPassToHunter(req, res) {
         error: error.message
       });
     }
-  }
+  },
+  
+  //Use Reset Foul Pass
+  async useResetFoulPass(req, res) {
+    try {
+        const { foulRecordId } = req.params;
+        const hunterId = req.hunter.id;
+
+        // Find hunter
+        const hunter = await Hunter.findById(hunterId);
+        if (!hunter) {
+            return res.status(404).json({
+                status: 404, 
+                success: false,
+                message: 'Hunter not found'
+            });
+        }
+
+        // Check if hunter has any Clean Slate passes
+        if (!hunter.passes || hunter.passes.resetFoul.count <= 0) {
+            return res.status(400).json({
+                status: 400,
+                success: false,
+                message: 'No Clean Slate passes available'
+            });
+        }
+
+        // Find the foul record
+        const foulRecord = await FoulRecord.findOne({
+            _id: foulRecordId,
+            hunter: hunterId,
+            isStrike: true
+        });
+
+        if (!foulRecord) {
+            return res.status(404).json({
+                status: 404,
+                success: false, 
+                message: 'Strike foul record not found'
+            });
+        }
+
+        // Mark foul as cleared by pass
+        foulRecord.clearedByPass = true;
+        foulRecord.clearedAt = new Date();
+        await foulRecord.save();
+
+        // Reduce strike count and use pass
+        await Hunter.findByIdAndUpdate(
+            hunterId,
+            {
+                $inc: {
+                    'strikes.count': -1,
+                    'passes.resetFoul.count': -1
+                }
+            }
+        );
+
+        // Create notification
+        await notificationController.createNotification({
+            hunterId: hunterId,
+            title: 'Strike Removed',
+            message: `You have used a Clean Slate Pass to remove a strike. Your current strike count is now ${hunter.strikes.count - 1}.`,
+            type: 'system'
+        });
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Clean Slate Pass used successfully',
+            data: {
+                remainingPasses: hunter.passes.resetFoul.count - 1,
+                newStrikeCount: hunter.strikes.count - 1,
+                clearedFoul: {
+                    id: foulRecord._id,
+                    name: foulRecord.foul.name
+                }
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error using Clean Slate Pass',
+            error: error.message
+        });
+    }
+}
   
 };
 

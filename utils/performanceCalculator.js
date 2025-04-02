@@ -32,7 +32,7 @@ exports.calculatePerformanceScore = async (hunterId, bountyId, rank,xpEarned) =>
     // 1. Calculate XP Modifier (XPM)
     const maxXP = 2500; // as per your formula
     const xpm = Math.min(xpEarned / maxXP,1); // capped at 1
-    console.log("------->",hunter.xp)
+  
     // 2. Calculate Rank Modifier (RM)
     const rm = (totalHunters - rank + 1) / totalHunters;
     
@@ -95,7 +95,7 @@ exports.calculatePerformanceScore = async (hunterId, bountyId, rank,xpEarned) =>
     const averageScore = hunter.performance.totalBountiesCalculated > 0 
       ? totalScore / hunter.performance.totalBountiesCalculated 
       : roundedScore;
-    console.log(averageScore)
+   
     // Update average score
     hunter.performance.score = Math.round(averageScore * 100) / 100;
     

@@ -1,4 +1,5 @@
 // controllers/transactionController.js
+const Transaction = require('../models/Transaction');
 const transactionService = require('../services/transactionService');
 const notificationController = require('./notificationController');
 
@@ -20,15 +21,17 @@ const transactionController = {
             const hunterId = req.hunter.id;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
-            const { type, category, startDate, endDate } = req.query;
+            const { type, category, startDate, endDate, status } = req.query;
             
+            // Include status in the parameters passed to the service
             const result = await transactionService.getTransactionHistory(hunterId, {
                 page, 
                 limit, 
                 type, 
                 category, 
                 startDate, 
-                endDate
+                endDate,
+                status // Pass status if provided, otherwise it will fetch all statuses
             });
             
             return res.status(200).json({
@@ -198,7 +201,85 @@ const transactionController = {
                 error: error.message
             });
         }
+    },
+
+    // Add to transactionController.js
+async getAllMyActivities(req, res) {
+    try {
+        const hunterId = req.hunter.id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+        
+        // Query parameters for filtering
+        const { 
+            type,           // credit/debit
+            category,       // withdrawal, bounty, etc.
+            startDate, 
+            endDate,
+            minAmount,
+            maxAmount,
+            status          // include pending status filter
+        } = req.query;
+        
+        // Build query object - always filter by hunterId
+        const query = { hunter: hunterId };
+        
+        if (type) query.type = type;
+        if (category) query.category = category;
+        if (status) query.status = status;
+        
+        // Amount range filter
+        if (minAmount || maxAmount) {
+            query.amount = {};
+            if (minAmount) query.amount.$gte = parseFloat(minAmount);
+            if (maxAmount) query.amount.$lte = parseFloat(maxAmount);
+        }
+        
+        // Date range filter
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) query.createdAt.$gte = new Date(startDate);
+            if (endDate) {
+                const endDateTime = new Date(endDate);
+                endDateTime.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = endDateTime;
+            }
+        }
+        
+        // Get transactions with pagination
+        const transactions = await Transaction.find(query)
+            .select('type amount category status description reference referenceModel createdAt')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+        
+        // Get total count for pagination
+        const total = await Transaction.countDocuments(query);
+        
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'All transaction activities retrieved successfully',
+            data: {
+                transactions,
+                pagination: {
+                    total,
+                    page,
+                    limit,
+                    pages: Math.ceil(total / limit)
+                }
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error fetching transaction activities',
+            error: error.message
+        });
     }
+}
 };
 
 module.exports = transactionController;

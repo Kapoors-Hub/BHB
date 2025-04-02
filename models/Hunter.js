@@ -116,7 +116,6 @@ const hunterSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
-  // Add to Hunter schema
   titles: [{
     title: {
       type: mongoose.Schema.Types.ObjectId,
@@ -135,7 +134,7 @@ const hunterSchema = new mongoose.Schema({
       ref: 'Admin'
     }
   }],
-  // Update Hunter model to include passes
+
   passes: {
     timeExtension: {
       count: {
@@ -276,11 +275,26 @@ const hunterSchema = new mongoose.Schema({
       ref: 'Admin'
     }
   }],
+  strikes: {
+    count: {
+      type: Number,
+      default: 0
+    },
+    suspensionHistory: [{
+      startDate: Date,
+      endDate: Date,
+      reason: String
+    }],
+    isCurrentlySuspended: {
+      type: Boolean,
+      default: false
+    },
+    suspensionEndDate: Date
+  },
   otp: {
     code: String,
     expiresAt: Date
   },
-  // In Hunter model
   resetPasswordOtp: {
     code: String,
     expiresAt: Date
@@ -295,49 +309,6 @@ const hunterSchema = new mongoose.Schema({
     default: Date.now
   }
 });
-
-// Discarded But Good Logic
-// hunterSchema.methods.updateLevel = function() {
-//   const xp = this.xp;
-//   let tier, rank;
-
-//   // Define XP thresholds for each tier
-//   const BRONZE_MAX = 18000;
-//   const SILVER_MAX = 42000;
-//   const GOLD_MAX = 72000;
-
-//   // Define rank thresholds within each tier
-//   const SPECIALIST_THRESHOLD = 0.33; // 33% of tier range
-//   const MASTER_THRESHOLD = 0.66;     // 66% of tier range
-
-//   if (xp < BRONZE_MAX) {
-//       tier = 'Bronze';
-//       const tierProgress = xp / BRONZE_MAX;
-
-//       if (tierProgress < SPECIALIST_THRESHOLD) rank = 'Novice';
-//       else if (tierProgress < MASTER_THRESHOLD) rank = 'Specialist';
-//       else rank = 'Master';
-//   }
-//   else if (xp < SILVER_MAX) {
-//       tier = 'Silver';
-//       const tierProgress = (xp - BRONZE_MAX) / (SILVER_MAX - BRONZE_MAX);
-
-//       if (tierProgress < SPECIALIST_THRESHOLD) rank = 'Novice';
-//       else if (tierProgress < MASTER_THRESHOLD) rank = 'Specialist';
-//       else rank = 'Master';
-//   }
-//   else {
-//       tier = 'Gold';
-//       const tierProgress = (xp - SILVER_MAX) / (GOLD_MAX - SILVER_MAX);
-
-//       if (tierProgress < SPECIALIST_THRESHOLD) rank = 'Novice';
-//       else if (tierProgress < MASTER_THRESHOLD) rank = 'Specialist';
-//       else rank = 'Master';
-//   }
-
-//   this.level.tier = tier;
-//   this.level.rank = rank;
-// };
 
 hunterSchema.methods.updateLevel = function () {
   const xp = this.xp;

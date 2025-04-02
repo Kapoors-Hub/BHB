@@ -7,7 +7,7 @@ const foulController = {
     // Create a new foul type
     async createFoul(req, res) {
         try {
-            const { name, description, severity } = req.body;
+            const { name, description, severity,needsOccurrenceTracking } = req.body;
             const adminId = req.admin.id;
 
             // Validate severity
@@ -38,6 +38,7 @@ const foulController = {
                 name,
                 description,
                 severity,
+                needsOccurrenceTracking,
                 xpPenaltyPercentage,
                 createdBy: adminId
             });
@@ -135,116 +136,164 @@ const foulController = {
 
     // Apply a foul to a hunter
     async applyFoul(req, res) {
-        try {
-            const { hunterId, foulId, reason, evidence, relatedBountyId } = req.body;
-            const adminId = req.admin.id;
-
-            // Find the hunter
-            const hunter = await Hunter.findById(hunterId);
-            if (!hunter) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Hunter not found'
-                });
-            }
-
-            // Find the foul
-            const foul = await Foul.findById(foulId);
-            if (!foul) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Foul not found'
-                });
-            }
-
-            if (!foul.active) {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: 'This foul type is no longer active'
-                });
-            }
-
-            // Calculate XP penalty
-            let xpPenalty = Math.round((foul.xpPenaltyPercentage / 100) * 2500);
-
-            // If this is a "Hunter Quits Bounty" foul, check if bounty is live
-            if (foul.name === "Hunter Quits Bounty (Before LIVE)") {
-                xpPenalty = 0; // No penalty before live
-            }
-
-            // Check if occurrence tracking is needed
-            let isStrike = false;
-            let occurrenceNumber = 1;
-
-            if (foul.needsOccurrenceTracking) {
-                // Find previous occurrences of this foul for this hunter
-                const previousOccurrences = await FoulRecord.find({
-                    hunter: hunterId,
-                    foul: foulId
-                }).sort({ appliedAt: 1 });
-
-                occurrenceNumber = previousOccurrences.length + 1;
-
-                // If this is not the first occurrence, it's a strike
-                if (occurrenceNumber > 1) {
-                    isStrike = true;
-                }
-            }
-
-            // Create foul record
-            const foulRecord = await FoulRecord.create({
-                hunter: hunterId,
-                foul: foulId,
-                reason,
-                evidence,
-                xpPenalty,
-                occurrenceNumber,
-                isStrike,
-                appliedBy: adminId,
-                relatedBounty: relatedBountyId
-            });
-
-            // Deduct XP from hunter
-            await Hunter.findByIdAndUpdate(
-                hunterId,
-                {
-                    $inc: { xp: -xpPenalty },
-                    // If it's a strike, increment strike count
-                    ...(isStrike && { $inc: { strikes: 1 } })
-                }
-            );
-
-            // Fetch updated hunter data
-            const updatedHunter = await Hunter.findById(hunterId);
-
-            return res.status(201).json({
-                status: 201,
-                success: true,
-                message: 'Foul applied successfully',
-                data: {
-                    foulRecord,
-                    hunterName: hunter.name,
-                    foulName: foul.name,
-                    severity: foul.severity,
-                    xpPenalty,
-                    isStrike,
-                    occurrenceNumber,
-                    newXpTotal: updatedHunter.xp,
-                    strikeCount: updatedHunter.strikes || 0
-                }
-            });
-        } catch (error) {
-            return res.status(500).json({
-                status: 500,
-                success: false,
-                message: 'Error applying foul',
-                error: error.message
-            });
-        }
-    },
+      try {
+          const { hunterId, foulId, reason, evidence, relatedBountyId } = req.body;
+          const adminId = req.admin.id;
+  
+          // Find the hunter
+          const hunter = await Hunter.findById(hunterId);
+          if (!hunter) {
+              return res.status(404).json({
+                  status: 404,
+                  success: false,
+                  message: 'Hunter not found'
+              });
+          }
+  
+          // Find the foul
+          const foul = await Foul.findById(foulId);
+          if (!foul) {
+              return res.status(404).json({
+                  status: 404,
+                  success: false,
+                  message: 'Foul not found'
+              });
+          }
+  
+          if (!foul.active) {
+              return res.status(400).json({
+                  status: 400,
+                  success: false,
+                  message: 'This foul type is no longer active'
+              });
+          }
+  
+          // Calculate XP penalty
+          let xpPenalty = Math.round((foul.xpPenaltyPercentage / 100) * 2500);
+  
+          // If this is a "Hunter Quits Bounty (Before LIVE)" foul, ensure penalty is 0
+          if (foul.name === "Hunter Quits Bounty (Before LIVE)") {
+              xpPenalty = 0; // No penalty before live
+          }
+  
+          // Check if occurrence tracking is needed for strikes
+          let isStrike = false;
+          let occurrenceNumber = 1;
+          let newStrikeCount = hunter.strikes?.count || 0;
+  
+          if (foul.needsOccurrenceTracking) {
+              // Find previous occurrences of this foul for this hunter
+              const previousOccurrences = await FoulRecord.find({
+                  hunter: hunterId,
+                  foul: foulId
+              }).sort({ appliedAt: 1 });
+  
+              occurrenceNumber = previousOccurrences.length + 1;
+  
+              // Apply strike starting from second occurrence
+              if (occurrenceNumber > 1) {
+                  isStrike = true;
+                  newStrikeCount++;
+              }
+          }
+  
+          // Create foul record
+          const foulRecord = await FoulRecord.create({
+              hunter: hunterId,
+              foul: foulId,
+              reason,
+              evidence,
+              xpPenalty,
+              occurrenceNumber,
+              isStrike,
+              appliedBy: adminId,
+              relatedBounty: relatedBountyId
+          });
+  
+          // Check if this foul pushes hunter to 3 strikes (suspension threshold)
+          let suspensionApplied = false;
+          if (isStrike && newStrikeCount >= 3) {
+              // Calculate suspension period (14 days from now)
+              const suspensionStartDate = new Date();
+              const suspensionEndDate = new Date();
+              suspensionEndDate.setDate(suspensionEndDate.getDate() + 14);
+              
+              // Update hunter with suspension
+              await Hunter.findByIdAndUpdate(
+                  hunterId,
+                  {
+                      $set: {
+                          'strikes.isCurrentlySuspended': true,
+                          'strikes.suspensionEndDate': suspensionEndDate
+                      },
+                      $push: {
+                          'strikes.suspensionHistory': {
+                              startDate: suspensionStartDate,
+                              endDate: suspensionEndDate,
+                              reason: `Accumulated 3 strikes. Latest foul: ${foul.name}`
+                          }
+                      },
+                      $inc: { xp: -xpPenalty }
+                  }
+              );
+              
+              suspensionApplied = true;
+              
+              // Create notification for suspension
+              await notificationController.createNotification({
+                  hunterId: hunterId,
+                  title: 'Account Suspended',
+                  message: `Your account has been suspended for 14 days due to accumulating 3 strikes. You will be able to return on ${suspensionEndDate.toLocaleDateString()}.`,
+                  type: 'system'
+              });
+          } else {
+              // Just update XP and strike count
+              await Hunter.findByIdAndUpdate(
+                  hunterId,
+                  {
+                      $inc: { xp: -xpPenalty, 'strikes.count': isStrike ? 1 : 0 }
+                  }
+              );
+              
+              // Create notification for foul
+              await notificationController.createNotification({
+                  hunterId: hunterId,
+                  title: 'Foul Received',
+                  message: `You have received a foul: "${foul.name}". This has resulted in a penalty of ${xpPenalty} XP.${isStrike ? ' This foul counts as a strike.' : ''}`,
+                  type: 'system'
+              });
+          }
+  
+          // Fetch updated hunter data
+          const updatedHunter = await Hunter.findById(hunterId);
+  
+          return res.status(201).json({
+              status: 201,
+              success: true,
+              message: 'Foul applied successfully',
+              data: {
+                  foulRecord,
+                  hunterName: hunter.name,
+                  foulName: foul.name,
+                  severity: foul.severity,
+                  xpPenalty,
+                  isStrike,
+                  occurrenceNumber,
+                  newXpTotal: updatedHunter.xp,
+                  strikeCount: updatedHunter.strikes?.count || 0,
+                  suspensionApplied,
+                  suspensionEndDate: suspensionApplied ? updatedHunter.strikes.suspensionEndDate : null
+              }
+          });
+      } catch (error) {
+          return res.status(500).json({
+              status: 500,
+              success: false,
+              message: 'Error applying foul',
+              error: error.message
+          });
+      }
+  },
 
     // Get foul history for a hunter
     async getHunterFoulHistory(req, res) {

@@ -4,113 +4,77 @@ const Bounty = require('../models/Bounty');
 const Hunter = require('../models/Hunter');
 
 const initCronJobs = () => {
-    cron.schedule('* * * * *', async () => {
+    // Add this to your config/cronJobs.js file
+    cron.schedule('0 8 * * *', async () => {
         try {
-            const currentTime = new Date();
-            console.log('Running bounty status update check at:', currentTime);
+            const currentDate = new Date();
+            // Set time to beginning of the day for date comparison
+            const todayStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+            const todayEnd = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 23, 59, 59);
 
-            // Update draft to active
-            const draftResults = await Bounty.updateMany(
+            console.log('Running scheduled bounty activation at 8 AM for date:', todayStart.toISOString().split('T')[0]);
+
+            // Find bounties with 'yts' status where start time is today
+            const bountiesToActivate = await Bounty.updateMany(
                 {
-                    status: 'draft',
-                    startTime: { $lte: currentTime }
+                    status: 'yts',
+                    startTime: {
+                        $gte: todayStart,
+                        $lte: todayEnd
+                    }
                 },
-                { $set: { status: 'active' } }
+                {
+                    $set: { status: 'active' }
+                }
             );
 
-            // Update active to completed
-            const activeResults = await Bounty.updateMany(
+            if (bountiesToActivate.modifiedCount > 0) {
+                console.log(`Activated ${bountiesToActivate.modifiedCount} bounties scheduled for today`);
+            } else {
+                console.log('No bounties to activate for today');
+            }
+        } catch (error) {
+            console.error('Error in daily bounty activation cron job:', error);
+        }
+    });
+
+    // Add this to your config/cronJobs.js file
+    cron.schedule('0 0 * * *', async () => {
+        try {
+            const currentTime = new Date();
+            console.log('Running bounty closure check at midnight:', currentTime.toISOString());
+
+            // Find active bounties where end time has passed
+            const bountiesToClose = await Bounty.updateMany(
                 {
                     status: 'active',
                     endTime: { $lte: currentTime }
                 },
-                { $set: { status: 'completed' } }
+                {
+                    $set: { status: 'closed' }
+                }
             );
 
-            // Log status changes
-            if (draftResults.modifiedCount > 0 || activeResults.modifiedCount > 0) {
-                console.log('Status updates:', {
-                    draftToActive: draftResults.modifiedCount,
-                    activeToCompleted: activeResults.modifiedCount
-                });
+            if (bountiesToClose.modifiedCount > 0) {
+                console.log(`Closed ${bountiesToClose.modifiedCount} bounties that ended today`);
+
+                // You could also get the specific bounties to send notifications
+                const closedBountyIds = await Bounty.find({
+                    status: 'closed',
+                    endTime: {
+                        $gte: new Date(currentTime.getTime() - 24 * 60 * 60 * 1000),
+                        $lte: currentTime
+                    }
+                }).select('_id title');
+
+                console.log('Closed bounties:', closedBountyIds);
+            } else {
+                console.log('No bounties to close today');
             }
         } catch (error) {
-            console.error('Error updating bounty statuses:', error);
+            console.error('Error in bounty closure cron job:', error);
         }
     });
-
-    // Add to config/cronJobs.js
-    // Remove expired titles from hunter profiles - run daily at midnight
-    cron.schedule('0 0 * * *', async () => {
-        try {
-            const now = new Date();
-
-            // Find hunters with expired titles
-            const hunters = await Hunter.find({
-                'titles.validUntil': { $lt: now }
-            });
-
-            // For each hunter, move expired titles to history
-            for (const hunter of hunters) {
-                const activeTitles = hunter.titles.filter(title =>
-                    title.validUntil > now
-                );
-
-                hunter.titles = activeTitles;
-                await hunter.save();
-            }
-
-            console.log('Expired titles cleaned up');
-        } catch (error) {
-            console.error('Error cleaning up expired titles:', error);
-        }
-    });
-
-    // Add to config/cronJobs.js
-// Reset monthly passes on the 1st of each month
-cron.schedule('0 0 1 * *', async () => {
-    try {
-        await passController.resetMonthlyPasses();
-    } catch (error) {
-        console.error('Error in monthly pass reset cron job:', error);
-    }
-});
 };
 
 module.exports = initCronJobs;
-
-// config/cronJobs.js
-// const cron = require('node-cron');
-// const Bounty = require('../models/Bounty');
-
-// const initCronJobs = () => {
-//     // Every minute
-//     cron.schedule('* * * * *', async () => {
-//         // Your status update code
-//     });
-
-//     // Every 5 minutes
-//     cron.schedule('*/5 * * * *', async () => {
-//         // Code
-//     });
-
-//     // Every hour
-//     cron.schedule('0 * * * *', async () => {
-//         // Code
-//     });
-
-//     // Every day at midnight
-//     cron.schedule('0 0 * * *', async () => {
-//         // Code
-//     });
-
-//     // Every Sunday at 00:00
-//     cron.schedule('0 0 * * 0', async () => {
-//         // Code
-//     });
-
-//     // Multiple times example
-//     cron.schedule('0 9,17 * * *', async () => {
-//         // Runs at 9 AM and 5 PM
-//     });
-// };

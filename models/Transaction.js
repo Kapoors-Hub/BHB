@@ -32,7 +32,7 @@ const transactionSchema = new mongoose.Schema({
   },
   referenceModel: {
     type: String,
-    enum: ['Bounty', 'Quiz', 'Admin', null]
+    enum: ['Bounty', 'Quiz', 'Admin', 'WithdrawalRequest', null]
   },
   balanceBefore: {
     type: Number,
@@ -44,7 +44,7 @@ const transactionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed', 'cancelled'],
+    enum: ['pending', 'processing', 'completed', 'failed', 'canceled'],
     default: 'completed'
   },
   initiatedBy: {
@@ -57,9 +57,18 @@ const transactionSchema = new mongoose.Schema({
       enum: ['Admin', 'Hunter', 'System', 'Lord']
     }
   },
+  processedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    refPath: 'processedByRole'
+  },
+  processedByRole: {
+    type: String,
+    enum: ['Admin', 'System', 'Hunter'],
+  },
+  processedAt: Date,
   metaData: {
-  type: mongoose.Schema.Types.Mixed  // This is the correct syntax
-},
+    type: mongoose.Schema.Types.Mixed
+  },
   createdAt: {
     type: Date,
     default: Date.now

@@ -21,8 +21,8 @@ const foulSchema = new mongoose.Schema({
         required: [true, 'XP penalty percentage is required']
     },
     needsOccurrenceTracking: {
-        type: Boolean,
-        default: false
+        type: Boolean
+    
     },
     active: {
         type: Boolean,

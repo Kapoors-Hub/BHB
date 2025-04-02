@@ -158,8 +158,8 @@ const bountySchema = new mongoose.Schema({
     }],
     status: {
         type: String,
-        enum: ['draft', 'active', 'completed', 'cancelled'],
-        default: 'draft'
+        enum: ['yts', 'active', 'closed', 'completed'],
+        default: 'yts'
     },
     level: {
         type: [String],
@@ -185,17 +185,17 @@ bountySchema.pre('save', function (next) {
         this.days = Math.ceil(differenceMs / (1000 * 60 * 60 * 24));
     }
 
-     // Set level based on reward prize
-     const reward = this.rewardPrize;
-    
-     if (reward >= 0 && reward <= 3000) {
-         this.level = ['Bronze', 'Silver', 'Gold'];
-     } else if (reward > 3000 && reward <= 5000) {
-         this.level = ['Silver', 'Gold'];
-     } else if (reward > 5000) {
-         this.level = ['Gold'];
-     }
-     
+    // Set level based on reward prize
+    const reward = this.rewardPrize;
+
+    if (reward >= 0 && reward <= 3000) {
+        this.level = ['Bronze', 'Silver', 'Gold'];
+    } else if (reward > 3000 && reward <= 5000) {
+        this.level = ['Silver', 'Gold'];
+    } else if (reward > 5000) {
+        this.level = ['Gold'];
+    }
+
     next();
 });
 

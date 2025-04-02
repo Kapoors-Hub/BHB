@@ -61,7 +61,7 @@ const bountyController = {
             }
 
             // Set initial status based on start time
-            const initialStatus = currentDate >= startDate ? 'active' : 'draft';
+            const initialStatus = currentDate >= startDate ? 'active' : 'yts';
 
             const bounty = await Bounty.create({
                 title,
@@ -746,18 +746,18 @@ const bountyController = {
         }
     },
 
-
+    // Post Bounty
 
     async postBountyResult(req, res) {
         try {
             const { bountyId } = req.params;
             const lordId = req.lord.id;
-
+    
             const bounty = await Bounty.findOne({
                 _id: bountyId,
                 createdBy: lordId
             }).populate('participants.hunter');
-
+    
             // Check if result date has reached
             const currentDate = new Date();
             if (currentDate < bounty.resultTime) {
@@ -767,12 +767,12 @@ const bountyController = {
                     message: 'Cannot post result before result date'
                 });
             }
-
+    
             // Get reviewed submissions
             const reviewedParticipants = bounty.participants.filter(
                 p => p.submission && p.submission.review
             );
-
+    
             if (reviewedParticipants.length === 0) {
                 return res.status(400).json({
                     status: 400,
@@ -780,21 +780,122 @@ const bountyController = {
                     message: 'No submissions have been reviewed yet'
                 });
             }
-
+    
+            // Identify hunters who registered but did not submit
+            const nonSubmittingParticipants = bounty.participants.filter(
+                p => !p.submission || !p.submission.submittedAt
+            );
+    
+            // Apply fouls to non-submitting participants
+            for (const participant of nonSubmittingParticipants) {
+                // Find the appropriate foul type
+                const noSubmissionFoul = await Foul.findOne({ name: "Registers but does not submit" });
+                
+                if (noSubmissionFoul) {
+                    // Find if this hunter has previous occurrences of this foul
+                    const previousOccurrences = await FoulRecord.find({
+                        hunter: participant.hunter._id,
+                        foul: noSubmissionFoul._id
+                    });
+                    
+                    // Determine if this is a strike (second or later occurrence)
+                    const isStrike = previousOccurrences.length > 0;
+                    const occurrenceNumber = previousOccurrences.length + 1;
+                    
+                    // Calculate XP penalty (625 XP)
+                    const xpPenalty = 625;
+                    
+                    // Create foul record
+                    await FoulRecord.create({
+                        hunter: participant.hunter._id,
+                        foul: noSubmissionFoul._id,
+                        reason: `Registered for bounty "${bounty.title}" but did not submit work`,
+                        evidence: `Bounty ID: ${bountyId}`,
+                        xpPenalty,
+                        occurrenceNumber,
+                        isStrike,
+                        appliedBy: lordId, // Or you could use an admin ID if available
+                        relatedBounty: bountyId
+                    });
+                    
+                    // Update hunter's XP and strike count if applicable
+                    if (isStrike) {
+                        await Hunter.findByIdAndUpdate(
+                            participant.hunter._id,
+                            { 
+                                $inc: { 
+                                    xp: -xpPenalty,
+                                    'strikes.count': 1 
+                                } 
+                            }
+                        );
+                        
+                        // Check if this pushes hunter to 3 strikes (suspension threshold)
+                        const updatedHunter = await Hunter.findById(participant.hunter._id);
+                        if (updatedHunter.strikes.count >= 3) {
+                            // Calculate suspension period (14 days from now)
+                            const suspensionStartDate = new Date();
+                            const suspensionEndDate = new Date();
+                            suspensionEndDate.setDate(suspensionEndDate.getDate() + 14);
+                            
+                            // Update hunter with suspension
+                            await Hunter.findByIdAndUpdate(
+                                participant.hunter._id,
+                                {
+                                    $set: {
+                                        'strikes.isCurrentlySuspended': true,
+                                        'strikes.suspensionEndDate': suspensionEndDate
+                                    },
+                                    $push: {
+                                        'strikes.suspensionHistory': {
+                                            startDate: suspensionStartDate,
+                                            endDate: suspensionEndDate,
+                                            reason: `Accumulated 3 strikes. Latest foul: No submission for bounty "${bounty.title}"`
+                                        }
+                                    }
+                                }
+                            );
+                            
+                            // Create notification for suspension
+                            await notificationController.createNotification({
+                                hunterId: participant.hunter._id,
+                                title: 'Account Suspended',
+                                message: `Your account has been suspended for 14 days due to accumulating 3 strikes. You will be able to return on ${suspensionEndDate.toLocaleDateString()}.`,
+                                type: 'system'
+                            });
+                        }
+                    } else {
+                        // Just deduct XP for first occurrence
+                        await Hunter.findByIdAndUpdate(
+                            participant.hunter._id,
+                            { $inc: { xp: -xpPenalty } }
+                        );
+                    }
+                    
+                    // Create notification for hunter
+                    await notificationController.createNotification({
+                        hunterId: participant.hunter._id,
+                        title: 'Foul Received',
+                        message: `You have received a foul for registering but not submitting work for bounty "${bounty.title}". This has resulted in a penalty of ${xpPenalty} XP.${isStrike ? ' This foul counts as a strike.' : ''}`,
+                        type: 'system'
+                    });
+                }
+            }
+    
             // Sort by score
             const sortedParticipants = reviewedParticipants.sort(
                 (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
             );
-
+    
             // Update bounty status to completed
             bounty.status = 'completed';
-
+    
             // Now update each hunter's profile based on their performance
             for (let i = 0; i < sortedParticipants.length; i++) {
                 const participant = sortedParticipants[i];
                 const hunter = participant.hunter;
                 const rank = i + 1;
-
+    
                 // Calculate XP earned based on review scores
                 const scores = [
                     participant.submission.review.adherenceToBrief,
@@ -803,17 +904,17 @@ const bountyController = {
                     participant.submission.review.originalityCreativity,
                     participant.submission.review.documentation
                 ];
-
+    
                 // Calculate XP using XP service
                 const xpService = require('../services/xpService');
                 const xpEarned = xpService.calculateReviewXP(scores);
-
+    
                 // Update hunter's XP
                 await Hunter.findByIdAndUpdate(
                     hunter._id,
                     { $inc: { xp: xpEarned } }
                 );
-
+    
                 // Update hunter's achievements based on performance
                 if (rank === 1) {
                     // Winner
@@ -824,20 +925,20 @@ const bountyController = {
                             $push: { 'achievements.bountiesWon.bountyIds': bountyId }
                         }
                     );
-
+    
                     // Give a resetFoul pass to the winner
                     await Hunter.findByIdAndUpdate(
                         hunter._id,
                         { $inc: { 'passes.resetFoul.count': 1 } }
                     );
-
+    
                     // Increment consecutive wins for booster pass
                     const updatedHunter = await Hunter.findByIdAndUpdate(
                         hunter._id,
                         { $inc: { 'passes.consecutiveWins': 1 } },
                         { new: true }
                     );
-
+    
                     // If they reached 2 consecutive wins, give a booster pass
                     if (updatedHunter.passes.consecutiveWins >= 2) {
                         await Hunter.findByIdAndUpdate(
@@ -854,7 +955,7 @@ const bountyController = {
                         hunter._id,
                         { $set: { 'passes.consecutiveWins': 0 } }
                     );
-
+    
                     // If last place
                     if (rank === sortedParticipants.length) {
                         await Hunter.findByIdAndUpdate(
@@ -866,7 +967,7 @@ const bountyController = {
                         );
                     }
                 }
-
+    
                 // Calculate and update performance score
                 if (bounty.participants.length > 1) {  // Only if competitive
                     const performanceCalculator = require('../utils/performanceCalculator');
@@ -877,7 +978,7 @@ const bountyController = {
                         xpEarned
                     );
                 }
-
+    
                 // Create wallet transaction for winner
                 if (rank === 1 && bounty.rewardPrize > 0) {
                     // Add the prize money to the winner's wallet
@@ -898,7 +999,7 @@ const bountyController = {
                             totalParticipants: sortedParticipants.length
                         }
                     });
-
+    
                     // Add a notification about the wallet credit
                     await notificationController.createNotification({
                         hunterId: hunter._id,
@@ -909,10 +1010,10 @@ const bountyController = {
                         itemModel: 'Bounty'
                     });
                 }
-
+    
                 // Update review status to published
                 participant.submission.review.reviewStatus = 'published';
-
+    
                 // Create notification for hunter
                 await notificationController.createNotification({
                     hunterId: hunter._id,
@@ -923,13 +1024,13 @@ const bountyController = {
                     itemModel: 'Bounty'
                 });
             }
-
+    
             // Save bounty with updated review statuses
             await bounty.save();
-
+    
             // Award passes (assuming this also exists in your system)
             await passController.awardPassesForBounty(bountyId);
-
+    
             return res.status(200).json({
                 status: 200,
                 success: true,
@@ -938,6 +1039,8 @@ const bountyController = {
                     bountyTitle: bounty.title,
                     totalParticipants: bounty.participants.length,
                     reviewedParticipants: reviewedParticipants.length,
+                    nonSubmittingParticipants: nonSubmittingParticipants.length,
+                    foulsApplied: nonSubmittingParticipants.length,
                     rankings: sortedParticipants.map((p, index) => ({
                         rank: index + 1,
                         hunter: p.hunter.username,
@@ -945,7 +1048,7 @@ const bountyController = {
                     }))
                 }
             });
-
+    
         } catch (error) {
             return res.status(500).json({
                 status: 500,

@@ -75,6 +75,7 @@ router.get('/performance', validateHunterToken, hunterController.getMyPerformanc
 
 router.get('/wallet', validateHunterToken, transactionController.getMyWallet);
 router.get('/transactions', validateHunterToken, transactionController.getMyTransactions);
+router.get('/transactions/all-activities', validateHunterToken, transactionController.getAllMyActivities);
 
 router.post('/withdrawals', validateHunterToken, withdrawalController.requestWithdrawal);
 router.get('/withdrawals', validateHunterToken, withdrawalController.getMyWithdrawalRequests);
