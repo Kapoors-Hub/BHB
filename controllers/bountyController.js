@@ -1086,8 +1086,15 @@ const bountyController = {
             }
 
             // Filter out participants with reviews
+            // const reviewedParticipants = bounty.participants.filter(
+            //     p => p.submission && p.submission.review
+            // );
+
             const reviewedParticipants = bounty.participants.filter(
-                p => p.submission && p.submission.review
+                p => p.submission &&
+                    p.submission.submittedAt &&
+                    p.submission.review &&
+                    p.submission.review.totalScore !== undefined
             );
 
             // Sort participants by score (highest first)
@@ -1116,8 +1123,14 @@ const bountyController = {
             }));
 
             // Get unreviewed participants
+            // Filter out participants with valid reviews
+           
+
+            // Better filtering for unreviewed participants
             const unreviewedParticipants = bounty.participants
-                .filter(p => p.submission && !p.submission.review)
+                .filter(p => p.submission &&
+                    p.submission.submittedAt &&
+                    (!p.submission.review || p.submission.review.totalScore === undefined))
                 .map(p => ({
                     hunter: {
                         id: p.hunter._id,
@@ -1128,9 +1141,9 @@ const bountyController = {
                     reviewed: false
                 }));
 
-            // Get participants who haven't submitted yet
+            // Better filtering for non-submitting participants
             const notSubmittedParticipants = bounty.participants
-                .filter(p => !p.submission)
+                .filter(p => !p.submission || !p.submission.submittedAt)
                 .map(p => ({
                     hunter: {
                         id: p.hunter._id,
@@ -1140,7 +1153,7 @@ const bountyController = {
                     joined: true,
                     submitted: false
                 }));
-
+            console.log(notSubmittedParticipants)
             return res.status(200).json({
                 status: 200,
                 success: true,
