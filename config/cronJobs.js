@@ -5,15 +5,30 @@ const Hunter = require('../models/Hunter');
 
 const initCronJobs = () => {
     // Add this to your config/cronJobs.js file
-    cron.schedule('10 12 * * *', async () => {
+    cron.schedule('00 8 * * *', async () => {
         try {
+
+            // Use IST (UTC+5:30)
             const currentDate = new Date();
-            // Set time to beginning of the day for date comparison
-            const todayStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-            const todayEnd = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 23, 59, 59);
+            const offset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds for IST
+
+            // Adjust to IST
+            const istDate = new Date(currentDate.getTime() + offset);
+            const todayStart = new Date(Date.UTC(
+                istDate.getUTCFullYear(),
+                istDate.getUTCMonth(),
+                istDate.getUTCDate()
+            ));
+            const todayEnd = new Date(Date.UTC(
+                istDate.getUTCFullYear(),
+                istDate.getUTCMonth(),
+                istDate.getUTCDate(),
+                23, 59, 59
+            ));
 
             console.log('Running scheduled bounty activation at 8 AM for date:', todayStart.toISOString().split('T')[0]);
 
+            
             // Find bounties with 'yts' status where start time is today
             const bountiesToActivate = await Bounty.updateMany(
                 {

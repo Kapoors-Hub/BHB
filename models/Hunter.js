@@ -69,6 +69,10 @@ const hunterSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  totalEarnings: {  
+    type: Number,
+    default: 0
+  },
   xp: {
     type: Number,
     default: 375
