@@ -770,10 +770,17 @@ const bountyController = {
                 });
             }
 
-            // Get reviewed submissions
+   
+            // Get reviewed submissions with stricter validation
             const reviewedParticipants = bounty.participants.filter(
-                p => p.submission && p.submission.review
+                p => p.submission &&
+                    p.submission.submittedAt &&
+                    p.submission.review &&
+                    typeof p.submission.review.totalScore === 'number' &&
+                    p.submission.review.totalScore >= 0
             );
+
+            
 
             if (reviewedParticipants.length === 0) {
                 return res.status(400).json({
@@ -984,6 +991,13 @@ const bountyController = {
                 // Create wallet transaction for winner
                 if (rank === 1 && bounty.rewardPrize > 0) {
                     // Add the prize money to the winner's wallet
+                    // Update total earnings separately
+                    await Hunter.findByIdAndUpdate(
+                        hunter._id,
+                        { $inc: { totalEarnings: bounty.rewardPrize } }
+                    );
+                    console.log(`Updated totalEarnings for hunter ${hunter._id} with amount ${bounty.rewardPrize}`);
+
                     await transactionService.createTransaction({
                         hunterId: hunter._id,
                         amount: bounty.rewardPrize,
@@ -1002,11 +1016,7 @@ const bountyController = {
                         }
                     });
 
-                    // Update total earnings separately
-                    await Hunter.findByIdAndUpdate(
-                        hunter._id,
-                        { $inc: { totalEarnings: bounty.rewardPrize } }
-                    );
+
 
                     // Add a notification about the wallet credit
                     await notificationController.createNotification({
@@ -1124,7 +1134,7 @@ const bountyController = {
 
             // Get unreviewed participants
             // Filter out participants with valid reviews
-           
+
 
             // Better filtering for unreviewed participants
             const unreviewedParticipants = bounty.participants
@@ -1625,7 +1635,7 @@ const bountyController = {
         try {
             const { bountyId } = req.params;
             const lordId = req.lord.id;
-    
+
             const bounty = await Bounty.findOne({
                 _id: bountyId,
                 createdBy: lordId
@@ -1636,7 +1646,7 @@ const bountyController = {
                 path: 'participants.hunter',
                 select: 'username name'
             });
-    
+
             if (!bounty) {
                 return res.status(404).json({
                     status: 404,
@@ -1644,20 +1654,20 @@ const bountyController = {
                     message: 'Bounty not found or you do not have permission'
                 });
             }
-    
+
             // Get only participants that have been properly evaluated
-            const validEvaluatedParticipants = bounty.participants.filter(p => 
-                p.submission && 
-                p.submission.review && 
+            const validEvaluatedParticipants = bounty.participants.filter(p =>
+                p.submission &&
+                p.submission.review &&
                 p.submission.review.totalScore !== undefined &&
                 bounty.evaluatedHunters.some(h => h._id.toString() === p.hunter._id.toString())
             );
-    
+
             // Sort by score
             const sortedEvaluatedParticipants = validEvaluatedParticipants.sort(
                 (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
             );
-    
+
             // Format evaluated submissions
             const evaluatedSubmissions = sortedEvaluatedParticipants.map((participant, index) => ({
                 hunterId: participant.hunter._id,
@@ -1670,7 +1680,7 @@ const bountyController = {
                     id => id.toString() === participant.hunter._id.toString()
                 )
             }));
-    
+
             return res.status(200).json({
                 status: 200,
                 success: true,
