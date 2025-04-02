@@ -1,4 +1,5 @@
 // controllers/transactionController.js
+const Hunter = require('../models/Hunter');
 const Transaction = require('../models/Transaction');
 const transactionService = require('../services/transactionService');
 const notificationController = require('./notificationController');
@@ -55,13 +56,23 @@ const transactionController = {
         try {
             const hunterId = req.hunter.id;
             
+            // Get wallet summary from transaction service
             const walletSummary = await transactionService.getWalletSummary(hunterId);
+            
+            // Get hunter's total earnings directly
+            const hunter = await Hunter.findById(hunterId).select('totalEarnings');
+            
+            // Add total earnings to the wallet summary
+            const enhancedWalletSummary = {
+                ...walletSummary,
+                totalEarnings: hunter.totalEarnings || 0  // Use 0 as fallback if field doesn't exist
+            };
             
             return res.status(200).json({
                 status: 200,
                 success: true,
                 message: 'Wallet summary retrieved successfully',
-                data: walletSummary
+                data: enhancedWalletSummary
             });
         } catch (error) {
             return res.status(500).json({
