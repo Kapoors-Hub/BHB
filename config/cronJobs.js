@@ -5,7 +5,7 @@ const Hunter = require('../models/Hunter');
 
 const initCronJobs = () => {
     // Add this to your config/cronJobs.js file
-    cron.schedule('0 8 * * *', async () => {
+    cron.schedule('10 12 * * *', async () => {
         try {
             const currentDate = new Date();
             // Set time to beginning of the day for date comparison
