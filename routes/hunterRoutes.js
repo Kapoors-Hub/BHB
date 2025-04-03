@@ -40,6 +40,7 @@ router.get('/bounties/:bountyId/score', validateHunterToken, hunterBountyControl
 router.get('/level', validateHunterToken, hunterController.getMyLevel);
 router.get('/bounties/:bountyId/rankings', validateHunterToken, hunterBountyController.getBountyRankings);
 router.get('/rankings', validateHunterToken, hunterBountyController.getMyRankings);
+router.get('/quit-bounties', validateHunterToken, hunterBountyController.getMyQuitBounties);
 
 
 // issue

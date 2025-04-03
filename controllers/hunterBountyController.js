@@ -704,9 +704,42 @@ async getMyRankings(req, res) {
         error: error.message
       });
     }
+  },
+
+  async getMyQuitBounties(req, res) {
+    try {
+      const hunterId = req.hunter.id;
+      
+      // Find the hunter and select only the quitBounties field
+      const hunter = await Hunter.findById(hunterId).select('quitBounties');
+      
+      if (!hunter) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter not found'
+        });
+      }
+      
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'Quit bounty IDs retrieved successfully',
+        data: {
+          count: hunter.quitBounties.length,
+          quitBountyIds: hunter.quitBounties
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error retrieving quit bounty IDs',
+        error: error.message
+      });
+    }
   }
 
-   
 };
 
 module.exports = hunterBountyController;
