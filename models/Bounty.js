@@ -166,6 +166,11 @@ const bountySchema = new mongoose.Schema({
         enum: ['Bronze', 'Silver', 'Gold'],
         default: ['Bronze', 'Silver', 'Gold']
     },
+   
+resultId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BountyResult'
+  },
     createdAt: {
         type: Date,
         default: Date.now

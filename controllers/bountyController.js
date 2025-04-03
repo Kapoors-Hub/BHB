@@ -9,6 +9,7 @@ const notificationController = require('./notificationController');
 const transactionService = require('../services/transactionService');
 const Foul = require('../models/Foul');
 const FoulRecord = require('../models/FoulRecord');
+const BountyResult = require('../models/BountyResult');
 
 const bountyController = {
     // Create new bounty
@@ -770,7 +771,7 @@ const bountyController = {
                 });
             }
 
-   
+
             // Get reviewed submissions with stricter validation
             const reviewedParticipants = bounty.participants.filter(
                 p => p.submission &&
@@ -780,7 +781,7 @@ const bountyController = {
                     p.submission.review.totalScore >= 0
             );
 
-            
+
 
             if (reviewedParticipants.length === 0) {
                 return res.status(400).json({
@@ -1049,6 +1050,65 @@ const bountyController = {
             // Award passes (assuming this also exists in your system)
             await passController.awardPassesForBounty(bountyId);
 
+            // Create the result rankings data
+            const resultRankings = sortedParticipants.map((participant, index) => {
+                const rank = index + 1;
+                const hunter = participant.hunter._id;
+                const score = participant.submission.review.totalScore;
+
+                // Get scores
+                const scores = {
+                    adherenceToBrief: participant.submission.review.adherenceToBrief,
+                    conceptualThinking: participant.submission.review.conceptualThinking,
+                    technicalExecution: participant.submission.review.technicalExecution,
+                    originalityCreativity: participant.submission.review.originalityCreativity,
+                    documentation: participant.submission.review.documentation
+                };
+
+                // Calculate XP
+                const xpService = require('../services/xpService');
+                const xpEarned = xpService.calculateReviewXP([
+                    scores.adherenceToBrief,
+                    scores.conceptualThinking,
+                    scores.technicalExecution,
+                    scores.originalityCreativity,
+                    scores.documentation
+                ]);
+
+                // Calculate reward (only for rank 1)
+                const rewardEarned = rank === 1 ? bounty.rewardPrize : 0;
+
+                return {
+                    hunter,
+                    rank,
+                    score,
+                    scores,
+                    xpEarned,
+                    rewardEarned
+                };
+            });
+
+            // Track non-submitters
+            const nonSubmitters = nonSubmittingParticipants.map(participant => {
+                return {
+                    hunter: participant.hunter._id,
+                    foulApplied: true,
+                };
+            });
+
+            // Create the bounty result
+            const bountyResult = await BountyResult.create({
+                bounty: bountyId,
+                postedBy: lordId,
+                rankings: resultRankings,
+                nonSubmitters
+            });
+
+            // Update the bounty with the result ID
+            bounty.resultId = bountyResult._id;
+            await bounty.save();
+
+
             return res.status(200).json({
                 status: 200,
                 success: true,
@@ -1081,12 +1141,11 @@ const bountyController = {
     async getBountyRankings(req, res) {
         try {
             const { bountyId } = req.params;
-
-            // Find the bounty and populate hunter information
+            
+            // Find the bounty
             const bounty = await Bounty.findById(bountyId)
-                .populate('participants.hunter', 'username name email xp level')
                 .populate('createdBy', 'username firstName lastName');
-
+                
             if (!bounty) {
                 return res.status(404).json({
                     status: 404,
@@ -1094,98 +1153,136 @@ const bountyController = {
                     message: 'Bounty not found'
                 });
             }
-
-            // Filter out participants with reviews
-            // const reviewedParticipants = bounty.participants.filter(
-            //     p => p.submission && p.submission.review
-            // );
-
-            const reviewedParticipants = bounty.participants.filter(
-                p => p.submission &&
-                    p.submission.submittedAt &&
-                    p.submission.review &&
-                    p.submission.review.totalScore !== undefined
-            );
-
-            // Sort participants by score (highest first)
-            const rankedParticipants = reviewedParticipants.sort(
-                (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
-            );
-
-            // Format data for response
-            const rankings = rankedParticipants.map((participant, index) => ({
-                rank: index + 1,
-                hunter: {
-                    id: participant.hunter._id,
-                    username: participant.hunter.username,
-                    name: participant.hunter.name
+            
+            // Response data structure
+            const responseData = {
+                bountyId: bounty._id,
+                bountyTitle: bounty.title,
+                createdBy: {
+                    id: bounty.createdBy._id,
+                    name: `${bounty.createdBy.firstName} ${bounty.createdBy.lastName}`,
+                    username: bounty.createdBy.username
                 },
-                scores: {
-                    adherenceToBrief: participant.submission.review.adherenceToBrief,
-                    conceptualThinking: participant.submission.review.conceptualThinking,
-                    technicalExecution: participant.submission.review.technicalExecution,
-                    originalityCreativity: participant.submission.review.originalityCreativity,
-                    documentation: participant.submission.review.documentation,
-                    totalScore: participant.submission.review.totalScore
-                },
-                submittedAt: participant.submission.submittedAt,
-                reviewedAt: participant.submission.review.reviewedAt
-            }));
-
-            // Get unreviewed participants
-            // Filter out participants with valid reviews
-
-
-            // Better filtering for unreviewed participants
-            const unreviewedParticipants = bounty.participants
-                .filter(p => p.submission &&
-                    p.submission.submittedAt &&
-                    (!p.submission.review || p.submission.review.totalScore === undefined))
-                .map(p => ({
+                status: bounty.status,
+                startTime: bounty.startTime,
+                endTime: bounty.endTime,
+                resultTime: bounty.resultTime,
+                totalParticipants: bounty.participants.length
+            };
+            
+            // If there's a result, use the stored rankings
+            if (bounty.resultId) {
+                const result = await BountyResult.findById(bounty.resultId)
+                    .populate('rankings.hunter', 'username name email xp level')
+                    .populate('nonSubmitters.hunter', 'username name email xp level');
+                    
+                if (result) {
+                    responseData.reviewedParticipants = result.rankings.length;
+                    responseData.rankings = result.rankings.map(r => ({
+                        rank: r.rank,
+                        hunter: {
+                            id: r.hunter._id,
+                            username: r.hunter.username,
+                            name: r.hunter.name
+                        },
+                        scores: r.scores,
+                        xpEarned: r.xpEarned,
+                        rewardEarned: r.rewardEarned,
+                        submittedAt: r.submittedAt
+                    }));
+                    
+                    responseData.notSubmitted = result.nonSubmitters.map(ns => ({
+                        hunter: {
+                            id: ns.hunter._id,
+                            username: ns.hunter.username,
+                            name: ns.hunter.name
+                        },
+                        joined: true,
+                        submitted: false,
+                        foulApplied: ns.foulApplied
+                    }));
+                    
+                    // Set unreviewedSubmissions as empty since all are already reviewed in the result
+                    responseData.unreviewedSubmissions = [];
+                }
+            } else {
+                // If no result yet, use the live view approach with enhanced filtering
+                // Populate participant data
+                await bounty.populate('participants.hunter', 'username name email xp level');
+                
+                // Filter out participants with valid reviews
+                const reviewedParticipants = bounty.participants.filter(
+                    p => p.submission &&
+                        p.submission.submittedAt &&
+                        p.submission.review &&
+                        typeof p.submission.review.totalScore === 'number' &&
+                        p.submission.review.totalScore >= 0
+                );
+    
+                // Sort participants by score (highest first)
+                const rankedParticipants = reviewedParticipants.sort(
+                    (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
+                );
+    
+                // Format data for response
+                responseData.reviewedParticipants = reviewedParticipants.length;
+                responseData.rankings = rankedParticipants.map((participant, index) => ({
+                    rank: index + 1,
                     hunter: {
-                        id: p.hunter._id,
-                        username: p.hunter.username,
-                        name: p.hunter.name
+                        id: participant.hunter._id,
+                        username: participant.hunter.username,
+                        name: participant.hunter.name
                     },
-                    submittedAt: p.submission.submittedAt,
-                    reviewed: false
-                }));
-
-            // Better filtering for non-submitting participants
-            const notSubmittedParticipants = bounty.participants
-                .filter(p => !p.submission || !p.submission.submittedAt)
-                .map(p => ({
-                    hunter: {
-                        id: p.hunter._id,
-                        username: p.hunter.username,
-                        name: p.hunter.name
+                    scores: {
+                        adherenceToBrief: participant.submission.review.adherenceToBrief,
+                        conceptualThinking: participant.submission.review.conceptualThinking,
+                        technicalExecution: participant.submission.review.technicalExecution,
+                        originalityCreativity: participant.submission.review.originalityCreativity,
+                        documentation: participant.submission.review.documentation,
+                        totalScore: participant.submission.review.totalScore
                     },
-                    joined: true,
-                    submitted: false
+                    submittedAt: participant.submission.submittedAt,
+                    reviewedAt: participant.submission.review.reviewedAt
                 }));
-            console.log(notSubmittedParticipants)
+    
+                // Better filtering for unreviewed participants
+                const unreviewedParticipants = bounty.participants
+                    .filter(p => p.submission &&
+                        p.submission.submittedAt &&
+                        (!p.submission.review || 
+                         typeof p.submission.review.totalScore !== 'number' ||
+                         p.submission.review.totalScore < 0))
+                    .map(p => ({
+                        hunter: {
+                            id: p.hunter._id,
+                            username: p.hunter.username,
+                            name: p.hunter.name
+                        },
+                        submittedAt: p.submission.submittedAt,
+                        reviewed: false
+                    }));
+                responseData.unreviewedSubmissions = unreviewedParticipants;
+    
+                // Better filtering for non-submitting participants
+                const notSubmittedParticipants = bounty.participants
+                    .filter(p => !p.submission || !p.submission.submittedAt)
+                    .map(p => ({
+                        hunter: {
+                            id: p.hunter._id,
+                            username: p.hunter.username,
+                            name: p.hunter.name
+                        },
+                        joined: true,
+                        submitted: false
+                    }));
+                responseData.notSubmitted = notSubmittedParticipants;
+            }
+            
             return res.status(200).json({
                 status: 200,
                 success: true,
                 message: 'Bounty rankings retrieved successfully',
-                data: {
-                    bountyId: bounty._id,
-                    bountyTitle: bounty.title,
-                    createdBy: {
-                        id: bounty.createdBy._id,
-                        name: `${bounty.createdBy.firstName} ${bounty.createdBy.lastName}`,
-                        username: bounty.createdBy.username
-                    },
-                    status: bounty.status,
-                    startTime: bounty.startTime,
-                    endTime: bounty.endTime,
-                    resultTime: bounty.resultTime,
-                    totalParticipants: bounty.participants.length,
-                    reviewedParticipants: reviewedParticipants.length,
-                    rankings,
-                    unreviewedSubmissions: unreviewedParticipants,
-                    notSubmitted: notSubmittedParticipants
-                }
+                data: responseData
             });
         } catch (error) {
             return res.status(500).json({

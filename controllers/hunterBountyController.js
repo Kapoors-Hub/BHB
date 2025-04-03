@@ -1,5 +1,6 @@
 // controllers/hunterBountyController.js
 const Bounty = require('../models/Bounty');
+const BountyResult = require('../models/BountyResult');
 const Hunter = require('../models/Hunter');
 const { calculateReviewXP } = require('../services/xpService');
 const notificationController = require('./notificationController');
@@ -653,7 +654,57 @@ async quitBounty(req, res) {
             error: error.message
         });
     }
-}
+},
+
+// Add to hunterBountyController.js
+async getMyRankings(req, res) {
+    try {
+      const hunterId = req.hunter.id;
+      
+      // Find all bounty results where this hunter is ranked
+      const results = await BountyResult.find({
+        'rankings.hunter': hunterId
+      })
+      .populate('bounty', 'title status startTime endTime resultTime rewardPrize')
+      .sort({ postedAt: -1 });
+      
+      // Format hunter's results
+      const myRankings = results.map(result => {
+        const myRanking = result.rankings.find(r => 
+          r.hunter.toString() === hunterId
+        );
+        
+        return {
+          bountyId: result.bounty._id,
+          bountyTitle: result.bounty.title,
+          bountyStatus: result.bounty.status,
+          resultPostedAt: result.postedAt,
+          rank: myRanking.rank,
+          totalParticipants: result.rankings.length,
+          score: myRanking.score,
+          xpEarned: myRanking.xpEarned,
+          rewardEarned: myRanking.rewardEarned
+        };
+      });
+      
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'Your rankings retrieved successfully',
+        data: {
+          totalBounties: myRankings.length,
+          rankings: myRankings
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error retrieving your rankings',
+        error: error.message
+      });
+    }
+  }
 
    
 };

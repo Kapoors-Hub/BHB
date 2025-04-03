@@ -2,6 +2,7 @@
 const Title = require('../models/Title');
 const TitleAward = require('../models/TitleAward');
 const Hunter = require('../models/Hunter');
+const notificationController = require('./notificationController');
 
 const titleController = {
     // Create a new title
@@ -60,7 +61,7 @@ const titleController = {
         try {
             const { titleId, hunterId, reason } = req.body;
             const adminId = req.admin.id;
-
+          
             // Validate inputs
             if (!titleId || !hunterId) {
                 return res.status(400).json({
