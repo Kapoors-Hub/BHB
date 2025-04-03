@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Notification = require('../models/Notification');
 const notificationController = require('./notificationController');
+const FoulRecord = require('../models/FoulRecord');
 
 const hunterController = {
 
@@ -1045,7 +1046,90 @@ async resendForgotPasswordOTP(req, res) {
             error: error.message
           });
         }
+      },
+      // Add to hunterController.js
+async getMyFouls(req, res) {
+  try {
+    const hunterId = req.hunter.id;
+    
+    // Fetch all foul records for this hunter
+    const foulRecords = await FoulRecord.find({ hunter: hunterId })
+      .populate('foul', 'name description severity xpPenaltyPercentage')
+      .populate('appliedBy', 'username firstName lastName')
+      .populate('relatedBounty', 'title')
+      .sort({ appliedAt: -1 });
+    
+    // Get total count and total XP penalty
+    const totalXpPenalty = foulRecords.reduce((sum, record) => sum + record.xpPenalty, 0);
+    
+    // Count by severity
+    const severityCounts = {
+      low: 0,
+      medium: 0,
+      high: 0
+    };
+    
+    foulRecords.forEach(record => {
+      if (record.foul && record.foul.severity) {
+        severityCounts[record.foul.severity]++;
       }
+    });
+    
+    // Format the data for response
+    const formattedFouls = foulRecords.map(record => ({
+      id: record._id,
+      foulName: record.foul ? record.foul.name : 'Unknown Foul',
+      description: record.foul ? record.foul.description : '',
+      severity: record.foul ? record.foul.severity : 'unknown',
+      reason: record.reason,
+      evidence: record.evidence,
+      xpPenalty: record.xpPenalty,
+      wasStrike: record.isStrike,
+      occurrenceNumber: record.occurrenceNumber,
+      relatedBounty: record.relatedBounty ? {
+        id: record.relatedBounty._id,
+        title: record.relatedBounty.title
+      } : null,
+      appliedBy: record.appliedBy ? {
+        username: record.appliedBy.username,
+        name: record.appliedBy.firstName 
+          ? `${record.appliedBy.firstName} ${record.appliedBy.lastName}` 
+          : record.appliedBy.username
+      } : { username: 'System', name: 'System' },
+      appliedAt: record.appliedAt,
+      status: record.clearedByPass ? 'cleared' : (record.reducedPenalty ? 'reduced' : 'active'),
+      originalPenalty: record.reducedPenalty ? record.xpPenalty + record.xpRestored : record.xpPenalty
+    }));
+    
+    // Get hunter strike info
+    const hunter = await Hunter.findById(hunterId).select('strikes');
+    
+    return res.status(200).json({
+      status: 200,
+      success: true,
+      message: 'Foul records retrieved successfully',
+      data: {
+        totalFouls: foulRecords.length,
+        totalXpPenalty,
+        severityCounts,
+        strikes: {
+          count: hunter.strikes.count,
+          isCurrentlySuspended: hunter.strikes.isCurrentlySuspended,
+          suspensionEndDate: hunter.strikes.suspensionEndDate,
+          suspensionHistory: hunter.strikes.suspensionHistory
+        },
+        fouls: formattedFouls
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: 500,
+      success: false,
+      message: 'Error retrieving foul records',
+      error: error.message
+    });
+  }
+}
       
 };
 

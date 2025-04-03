@@ -897,6 +897,32 @@ const bountyController = {
                 (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
             );
 
+            // Check if this is a non-profit bounty (reward prize is zero)
+            if (bounty.rewardPrize === 0) {
+                // Update nonProfitBounties count for all submitters
+                for (const participant of reviewedParticipants) {
+                    await Hunter.findByIdAndUpdate(
+                        participant.hunter._id,
+                        {
+                            $inc: { 'achievements.nonProfitBounties.count': 1 },
+                            $push: { 'achievements.nonProfitBounties.bountyIds': bountyId }
+                        }
+                    );
+
+                    // Create a notification for the hunter
+                    await notificationController.createNotification({
+                        hunterId: participant.hunter._id,
+                        title: 'Non-Profit Bounty Completed',
+                        message: `You've completed a non-profit bounty: "${bounty.title}". Thank you for your contribution!`,
+                        type: 'achievement',
+                        relatedItem: bountyId,
+                        itemModel: 'Bounty'
+                    });
+                }
+
+                console.log(`Updated nonProfitBounties count for ${reviewedParticipants.length} hunters`);
+            }
+
             // Update bounty status to completed
             bounty.status = 'completed';
 
@@ -1141,11 +1167,11 @@ const bountyController = {
     async getBountyRankings(req, res) {
         try {
             const { bountyId } = req.params;
-            
+
             // Find the bounty
             const bounty = await Bounty.findById(bountyId)
                 .populate('createdBy', 'username firstName lastName');
-                
+
             if (!bounty) {
                 return res.status(404).json({
                     status: 404,
@@ -1153,7 +1179,7 @@ const bountyController = {
                     message: 'Bounty not found'
                 });
             }
-            
+
             // Response data structure
             const responseData = {
                 bountyId: bounty._id,
@@ -1169,13 +1195,13 @@ const bountyController = {
                 resultTime: bounty.resultTime,
                 totalParticipants: bounty.participants.length
             };
-            
+
             // If there's a result, use the stored rankings
             if (bounty.resultId) {
                 const result = await BountyResult.findById(bounty.resultId)
                     .populate('rankings.hunter', 'username name email xp level')
                     .populate('nonSubmitters.hunter', 'username name email xp level');
-                    
+
                 if (result) {
                     responseData.reviewedParticipants = result.rankings.length;
                     responseData.rankings = result.rankings.map(r => ({
@@ -1190,7 +1216,7 @@ const bountyController = {
                         rewardEarned: r.rewardEarned,
                         submittedAt: r.submittedAt
                     }));
-                    
+
                     responseData.notSubmitted = result.nonSubmitters.map(ns => ({
                         hunter: {
                             id: ns.hunter._id,
@@ -1201,7 +1227,7 @@ const bountyController = {
                         submitted: false,
                         foulApplied: ns.foulApplied
                     }));
-                    
+
                     // Set unreviewedSubmissions as empty since all are already reviewed in the result
                     responseData.unreviewedSubmissions = [];
                 }
@@ -1209,7 +1235,7 @@ const bountyController = {
                 // If no result yet, use the live view approach with enhanced filtering
                 // Populate participant data
                 await bounty.populate('participants.hunter', 'username name email xp level');
-                
+
                 // Filter out participants with valid reviews
                 const reviewedParticipants = bounty.participants.filter(
                     p => p.submission &&
@@ -1218,12 +1244,12 @@ const bountyController = {
                         typeof p.submission.review.totalScore === 'number' &&
                         p.submission.review.totalScore >= 0
                 );
-    
+
                 // Sort participants by score (highest first)
                 const rankedParticipants = reviewedParticipants.sort(
                     (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
                 );
-    
+
                 // Format data for response
                 responseData.reviewedParticipants = reviewedParticipants.length;
                 responseData.rankings = rankedParticipants.map((participant, index) => ({
@@ -1244,14 +1270,14 @@ const bountyController = {
                     submittedAt: participant.submission.submittedAt,
                     reviewedAt: participant.submission.review.reviewedAt
                 }));
-    
+
                 // Better filtering for unreviewed participants
                 const unreviewedParticipants = bounty.participants
                     .filter(p => p.submission &&
                         p.submission.submittedAt &&
-                        (!p.submission.review || 
-                         typeof p.submission.review.totalScore !== 'number' ||
-                         p.submission.review.totalScore < 0))
+                        (!p.submission.review ||
+                            typeof p.submission.review.totalScore !== 'number' ||
+                            p.submission.review.totalScore < 0))
                     .map(p => ({
                         hunter: {
                             id: p.hunter._id,
@@ -1262,7 +1288,7 @@ const bountyController = {
                         reviewed: false
                     }));
                 responseData.unreviewedSubmissions = unreviewedParticipants;
-    
+
                 // Better filtering for non-submitting participants
                 const notSubmittedParticipants = bounty.participants
                     .filter(p => !p.submission || !p.submission.submittedAt)
@@ -1277,7 +1303,7 @@ const bountyController = {
                     }));
                 responseData.notSubmitted = notSubmittedParticipants;
             }
-            
+
             return res.status(200).json({
                 status: 200,
                 success: true,

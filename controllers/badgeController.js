@@ -1,5 +1,6 @@
 const Badge = require('../models/Badge');
 const Hunter = require('../models/Hunter');
+const notificationController = require('./notificationController');
 
 const badgeController = {
     // Create new badge

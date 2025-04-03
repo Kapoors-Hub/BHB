@@ -82,6 +82,8 @@ router.post('/withdrawals', validateHunterToken, withdrawalController.requestWit
 router.get('/withdrawals', validateHunterToken, withdrawalController.getMyWithdrawalRequests);
 router.put('/withdrawals/:requestId/cancel', validateHunterToken, withdrawalController.cancelWithdrawalRequest);
 
+router.get('/fouls', validateHunterToken, hunterController.getMyFouls);
+
 module.exports = router;
 
 // 44fb4129-959e-41b0-93f2-faf4c8d0780b
