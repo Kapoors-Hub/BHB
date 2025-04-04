@@ -8,6 +8,7 @@ const connectDB = require('./config/database');
 const adminRoutes = require('./routes/adminRoutes');
 const hunterRoutes = require('./routes/hunterRoutes');
 const lordRoutes = require('./routes/lordRoutes');
+const publicRoutes = require('./routes/publicRoutes');
 const initializeWebSocket = require('./config/websocket');
 const initCronJobs = require('./config/cronJobs');
 
@@ -35,6 +36,7 @@ initCronJobs();
 app.use('/api/admin', adminRoutes);
 app.use('/api/hunters', hunterRoutes);
 app.use('/api/lords', lordRoutes);
+app.use('/api/public', publicRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
