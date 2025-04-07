@@ -8,4 +8,6 @@ router.get('/hunters/search', publicController.searchHunters);
 
 router.get('/hunters/:hunterId/profile', publicController.getHunterPublicProfile);
 
+router.get('/stats', publicController.getPlatformStats);
+
 module.exports = router;

@@ -1,4 +1,5 @@
 // controllers/publicController.js
+const Bounty = require('../models/Bounty');
 const Hunter = require('../models/Hunter');
 
 const publicController = {
@@ -113,9 +114,7 @@ const publicController = {
     }
   },
 
-  /**
- * Get public hunter profile by ID
- */
+
 async getHunterPublicProfile(req, res) {
     try {
       const { hunterId } = req.params;
@@ -219,6 +218,52 @@ async getHunterPublicProfile(req, res) {
         status: 500,
         success: false,
         message: 'Error retrieving public profile',
+        error: error.message
+      });
+    }
+  },
+
+  async getPlatformStats(req, res) {
+    try {
+      // Get count of verified hunters
+      const totalHunters = await Hunter.countDocuments({ status: 'verified' });
+      
+      // Get sum of reward prizes for all active bounties
+      const activeBounties = await Bounty.find({ status: 'active' });
+      const prizePool = activeBounties.reduce((total, bounty) => total + (bounty.rewardPrize || 0), 0);
+      
+      // Get count of completed bounties
+      const completedBounties = await Bounty.countDocuments({ status: 'completed' });
+      
+      // Calculate additional statistics
+      const totalBounties = await Bounty.countDocuments();
+      const openBounties = await Bounty.countDocuments({ status: 'active' });
+      const upcomingBounties = await Bounty.countDocuments({ status: 'yts' });
+      
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'Platform statistics retrieved successfully',
+        data: {
+          hunterStats: {
+            totalHunters,
+            // You could add more hunter stats here like active hunters in the last 30 days
+          },
+          bountyStats: {
+            totalBounties,
+            completedBounties,
+            openBounties,
+            upcomingBounties,
+            prizePool
+          },
+          // You could add more sections like total XP awarded, etc.
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error retrieving platform statistics',
         error: error.message
       });
     }
