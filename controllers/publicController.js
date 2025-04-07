@@ -113,7 +113,10 @@ const publicController = {
     }
   },
 
-  async getHunterPublicProfile(req, res) {
+  /**
+ * Get public hunter profile by ID
+ */
+async getHunterPublicProfile(req, res) {
     try {
       const { hunterId } = req.params;
       
@@ -121,7 +124,7 @@ const publicController = {
       const hunter = await Hunter.findById(hunterId)
         .populate('badges.badge')
         .populate('titles.title')
-        .select('name username xp level guild performance badges titles achievements.bountiesWon.count achievements.firstSubmissions.count achievements.nonProfitBounties.count createdAt');
+        .select('name username xp level guild totalEarnings performance badges titles achievements.bountiesWon.count achievements.firstSubmissions.count achievements.nonProfitBounties.count status createdAt');
       console.log(hunter)
       if (!hunter) {
         return res.status(404).json({
@@ -130,16 +133,15 @@ const publicController = {
           message: 'Hunter not found'
         });
       }
-  
       
       // Only show profiles of verified hunters
-    //   if (hunter.status !== 'verified') {
-    //     return res.status(404).json({
-    //       status: 404,
-    //       success: false,
-    //       message: 'Hunter profile not found'
-    //     });
-    //   }
+      if (hunter.status !== 'verified') {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter profile not found'
+        });
+      }
       
       // Format active titles
       const now = new Date();
@@ -184,6 +186,9 @@ const publicController = {
             score: hunter.performance.score,
             totalBountiesCalculated: hunter.performance.totalBountiesCalculated
           }
+        },
+        financial: {
+          totalEarnings: hunter.totalEarnings || 0
         },
         achievements: {
           badges: hunter.badges.map(badge => ({
