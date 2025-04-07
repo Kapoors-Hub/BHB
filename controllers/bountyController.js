@@ -10,6 +10,7 @@ const transactionService = require('../services/transactionService');
 const Foul = require('../models/Foul');
 const FoulRecord = require('../models/FoulRecord');
 const BountyResult = require('../models/BountyResult');
+const notificationService = require('../services/notificationService');
 
 const bountyController = {
     // Create new bounty
