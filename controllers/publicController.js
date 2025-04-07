@@ -223,7 +223,8 @@ async getHunterPublicProfile(req, res) {
     }
   },
 
-  async getPlatformStats(req, res) {
+ 
+async getPlatformStats(req, res) {
     try {
       // Get count of verified hunters
       const totalHunters = await Hunter.countDocuments({ status: 'verified' });
@@ -240,14 +241,91 @@ async getHunterPublicProfile(req, res) {
       const openBounties = await Bounty.countDocuments({ status: 'active' });
       const upcomingBounties = await Bounty.countDocuments({ status: 'yts' });
       
+      // Get guild statistics
+      const guildStats = await Hunter.aggregate([
+        // Only consider verified hunters
+        { $match: { status: 'verified', guild: { $exists: true, $ne: null, $ne: '' } } },
+        
+        // Group by guild
+        { $group: {
+            _id: '$guild',
+            totalMembers: { $sum: 1 },
+            totalBountiesWon: { $sum: '$achievements.bountiesWon.count' },
+            totalEarnings: { $sum: '$totalEarnings' }
+        }},
+        
+        // Sort by total bounties won (descending)
+        { $sort: { totalBountiesWon: -1 } },
+        
+        // Limit to top 5 guilds
+        { $limit: 5 },
+        
+        // Project the fields we want
+        { $project: {
+            _id: 0,
+            name: '$_id',
+            totalMembers: 1,
+            totalBountiesWon: 1,
+            totalEarnings: 1
+        }}
+      ]);
+      
+      // Get additional data for the leading guild (if any)
+      let leadingGuildDetail = null;
+      if (guildStats.length > 0) {
+        const leadingGuild = guildStats[0];
+        
+        // Get members of the leading guild with their individual contribution
+        const leadingGuildMembers = await Hunter.find(
+          { guild: leadingGuild.name, status: 'verified' }
+        )
+        .select('username name achievements.bountiesWon.count totalEarnings')
+        .sort({ 'achievements.bountiesWon.count': -1 })
+        .limit(10);
+        
+        // Get completed bounties for this guild
+        const leadingGuildCompletedBounties = await Bounty.aggregate([
+          // Join with Hunter collection
+          { $lookup: {
+              from: 'hunters',
+              localField: 'participants.hunter',
+              foreignField: '_id',
+              as: 'hunters'
+          }},
+          
+          // Filter for completed bounties with winners from the leading guild
+          { $match: { 
+              status: 'completed',
+              'hunters.guild': leadingGuild.name
+          }},
+          
+          // Count the bounties
+          { $count: 'totalCompleted' }
+        ]);
+        
+        const completedByGuild = leadingGuildCompletedBounties.length > 0 ? 
+          leadingGuildCompletedBounties[0].totalCompleted : 0;
+        
+        leadingGuildDetail = {
+          ...leadingGuild,
+          completedBounties: completedByGuild,
+          topMembers: leadingGuildMembers.map(member => ({
+            id: member._id,
+            username: member.username,
+            name: member.name,
+            bountiesWon: member.achievements.bountiesWon.count,
+            earnings: member.totalEarnings
+          }))
+        };
+      }
+      
       return res.status(200).json({
         status: 200,
         success: true,
         message: 'Platform statistics retrieved successfully',
         data: {
           hunterStats: {
-            totalHunters,
-            // You could add more hunter stats here like active hunters in the last 30 days
+            totalHunters
           },
           bountyStats: {
             totalBounties,
@@ -256,7 +334,10 @@ async getHunterPublicProfile(req, res) {
             upcomingBounties,
             prizePool
           },
-          // You could add more sections like total XP awarded, etc.
+          guildStats: {
+            topGuilds: guildStats,
+            leadingGuild: leadingGuildDetail
+          }
         }
       });
     } catch (error) {
