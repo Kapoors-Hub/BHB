@@ -6,4 +6,6 @@ const publicController = require('../controllers/publicController');
 // Search hunters route
 router.get('/hunters/search', publicController.searchHunters);
 
+router.get('/hunters/:hunterId/profile', publicController.getHunterPublicProfile);
+
 module.exports = router;

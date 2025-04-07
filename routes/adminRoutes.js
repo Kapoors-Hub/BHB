@@ -11,6 +11,7 @@ const passController = require('../controllers/passController')
 const { validateAdmin } = require('../middleware/auth');
 const transactionController = require('../controllers/transactionController');
 const withdrawalController = require('../controllers/withdrawalController');
+const adminPassController = require('../controllers/adminPassController');
 
 router.post('/login', adminController.login);
 router.post('/register', validateAdmin, adminController.registerAdmin);
@@ -73,6 +74,10 @@ router.delete('/hunters/:hunterId/fouls/:foulRecordId', validateAdmin, foulContr
 router.put('/hunters/:hunterId/fouls/:foulRecordId/reduce', validateAdmin, foulController.reduceFoulPenalty);
 
 // Pass routes
+router.post('/passes', validateAdmin, adminPassController.createPass);
+router.get('/passes', validateAdmin, adminPassController.getAllPasses);
+router.get('/passes/:passId', validateAdmin, adminPassController.getPassById);
+router.put('/passes/:passId', validateAdmin, adminPassController.updatePass);
 router.post('/passes/seasonal', validateAdmin, passController.awardSeasonalPasses);
 // New route for awarding specific pass to hunter
 router.post('/hunters/:hunterId/passes', validateAdmin, passController.awardPassToHunter);

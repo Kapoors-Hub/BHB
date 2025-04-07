@@ -5,6 +5,7 @@ const FoulRecord = require('../models/FoulRecord');
 const Bounty = require('../models/Bounty');
 
 const passController = {
+    
     // Get hunter's passes
     async getHunterPasses(req, res) {
         try {

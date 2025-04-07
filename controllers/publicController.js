@@ -111,6 +111,112 @@ const publicController = {
         error: error.message
       });
     }
+  },
+
+  async getHunterPublicProfile(req, res) {
+    try {
+      const { hunterId } = req.params;
+      
+      // Fetch hunter with related data, but only public information
+      const hunter = await Hunter.findById(hunterId)
+        .populate('badges.badge')
+        .populate('titles.title')
+        .select('name username xp level guild performance badges titles achievements.bountiesWon.count achievements.firstSubmissions.count achievements.nonProfitBounties.count createdAt');
+      console.log(hunter)
+      if (!hunter) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter not found'
+        });
+      }
+      console.log(hunter.status)
+      
+      // Only show profiles of verified hunters
+    //   if (hunter.status !== 'verified') {
+    //     return res.status(404).json({
+    //       status: 404,
+    //       success: false,
+    //       message: 'Hunter profile not found'
+    //     });
+    //   }
+      
+      // Format active titles
+      const now = new Date();
+      const activeTitles = hunter.titles.filter(title => title.validUntil > now);
+      
+      // Calculate XP needed for next level (same logic as in private profile)
+      let nextThreshold;
+      const xp = hunter.xp;
+      
+      if (xp < 18000) {  // Bronze tier
+        if (hunter.level.rank === 'Novice') nextThreshold = 6000;
+        else if (hunter.level.rank === 'Specialist') nextThreshold = 12000;
+        else nextThreshold = 18000;
+      } else if (xp < 42000) {  // Silver tier
+        if (hunter.level.rank === 'Novice') nextThreshold = 26000;
+        else if (hunter.level.rank === 'Specialist') nextThreshold = 34000;
+        else nextThreshold = 42000;
+      } else {  // Gold tier
+        if (hunter.level.rank === 'Novice') nextThreshold = 52000;
+        else if (hunter.level.rank === 'Specialist') nextThreshold = 62000;
+        else nextThreshold = 72000;
+      }
+      
+      // Format response data - only include public information
+      const publicProfileData = {
+        basicInfo: {
+          id: hunter._id,
+          name: hunter.name,
+          username: hunter.username,
+          guild: hunter.guild,
+          joinedAt: hunter.createdAt
+        },
+        progression: {
+          xp: hunter.xp,
+          level: {
+            tier: hunter.level.tier,
+            rank: hunter.level.rank
+          },
+          nextLevelAt: nextThreshold,
+          xpNeeded: Math.max(0, nextThreshold - hunter.xp),
+          performance: {
+            score: hunter.performance.score,
+            totalBountiesCalculated: hunter.performance.totalBountiesCalculated
+          }
+        },
+        achievements: {
+          badges: hunter.badges.map(badge => ({
+            id: badge.badge?._id || badge.badge,
+            name: badge.badge?.name || 'Unknown Badge',
+            description: badge.badge?.description,
+            earnedAt: badge.earnedAt
+          })),
+          activeTitles: activeTitles.map(title => ({
+            id: title.title?._id || title.title,
+            name: title.title?.name || 'Unknown Title',
+            description: title.title?.description
+          })),
+          bountiesWon: hunter.achievements.bountiesWon.count,
+          firstSubmissions: hunter.achievements.firstSubmissions.count,
+          nonProfitBounties: hunter.achievements.nonProfitBounties.count
+        }
+      };
+      
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'Public profile retrieved successfully',
+        data: publicProfileData
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error retrieving public profile',
+        error: error.message
+      });
+    }
   }
 };
 
