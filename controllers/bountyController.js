@@ -91,6 +91,11 @@ const bountyController = {
                 { new: true }
             );
 
+            const lord = await Lord.findById(req.lord.id);
+
+            notificationService.sendNewBountyNotification(bounty, lord)
+            .catch(err => console.error('Error in notification sending:', err));
+
             return res.status(201).json({
                 status: 201,
                 success: true,
