@@ -130,7 +130,7 @@ const publicController = {
           message: 'Hunter not found'
         });
       }
-      console.log(hunter.status)
+  
       
       // Only show profiles of verified hunters
     //   if (hunter.status !== 'verified') {
