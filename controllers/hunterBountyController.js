@@ -228,16 +228,101 @@ async checkAcceptedBountyStatus(req, res) {
     async getMyBounties(req, res) {
         try {
             const hunterId = req.hunter.id;
-
+    
+            // Get participating bounties with creator info
             const participatingBounties = await Bounty.find({
                 'participants.hunter': hunterId
-            }).populate('createdBy', 'username');
-
+            }).populate('createdBy', 'username')
+              .populate('resultId');
+    
+            // Format the response with hunter-specific data
+            const formattedBounties = await Promise.all(participatingBounties.map(async (bounty) => {
+                // Find the hunter's submission among the participants
+                const hunterParticipation = bounty.participants.find(
+                    p => p.hunter.toString() === hunterId
+                );
+    
+                // Default values
+                let hunterScore = null;
+                let hunterRank = null;
+                let rewardWon = 0;
+    
+                // If the bounty has a result and is completed
+                if (bounty.status === 'completed' && bounty.resultId) {
+                    // If the hunter has a submission and it was reviewed
+                    if (hunterParticipation && 
+                        hunterParticipation.submission && 
+                        hunterParticipation.submission.review) {
+                        hunterScore = hunterParticipation.submission.review.totalScore;
+                    }
+    
+                    // Get the hunter's rank from the result if available
+                    if (bounty.resultId && bounty.resultId.rankings) {
+                        const hunterRanking = bounty.resultId.rankings.find(
+                            r => r.hunter.toString() === hunterId
+                        );
+                        
+                        if (hunterRanking) {
+                            hunterRank = hunterRanking.rank;
+                            // If hunter ranked 1st, they won the reward prize
+                            if (hunterRank === 1) {
+                                rewardWon = bounty.rewardPrize;
+                            }
+                        }
+                    } else {
+                        // If we don't have the populated result, fetch it separately
+                        const bountyResult = await BountyResult.findOne({ bounty: bounty._id });
+                        
+                        if (bountyResult && bountyResult.rankings) {
+                            const hunterRanking = bountyResult.rankings.find(
+                                r => r.hunter.toString() === hunterId
+                            );
+                            
+                            if (hunterRanking) {
+                                hunterRank = hunterRanking.rank;
+                                // If hunter ranked 1st, they won the reward prize
+                                if (hunterRank === 1) {
+                                    rewardWon = bounty.rewardPrize;
+                                }
+                            }
+                        }
+                    }
+                }
+    
+                // Return the formatted bounty with hunter-specific data
+                return {
+                    _id: bounty._id,
+                    title: bounty.title,
+                    description: bounty.description,
+                    status: bounty.status,
+                    startTime: bounty.startTime,
+                    endTime: bounty.endTime,
+                    resultTime: bounty.resultTime,
+                    rewardPrize: bounty.rewardPrize,
+                    createdBy: bounty.createdBy,
+                    createdAt: bounty.createdAt,
+                    // Hunter-specific data
+                    hunterPerformance: {
+                        score: hunterScore,
+                        rank: hunterRank,
+                        rewardWon: rewardWon
+                    },
+                    // Include submission status
+                    submissionStatus: hunterParticipation && hunterParticipation.submission ? 
+                        hunterParticipation.submission.status : 'not_submitted',
+                    // If there's a review, include its status
+                    reviewStatus: hunterParticipation && 
+                        hunterParticipation.submission && 
+                        hunterParticipation.submission.review ? 
+                        hunterParticipation.submission.review.reviewStatus : null
+                };
+            }));
+    
             return res.status(200).json({
                 status: 200,
                 success: true,
                 message: 'Your bounties fetched successfully',
-                data: participatingBounties
+                data: formattedBounties
             });
         } catch (error) {
             return res.status(500).json({
