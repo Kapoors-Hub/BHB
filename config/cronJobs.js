@@ -9,7 +9,7 @@ const TitleAward = require('../models/TitleAward');
 
 const initCronJobs = () => {
     // Add this to your config/cronJobs.js file
-    cron.schedule('40 18 * * *', async () => {
+    cron.schedule('30 17 * * *', async () => {
         try {
 
             // Use IST (UTC+5:30)

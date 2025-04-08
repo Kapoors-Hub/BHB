@@ -10,7 +10,7 @@ const FoulRecord = require('../models/FoulRecord');
 const Bounty = require('../models/Bounty');
 
 const hunterController = {
-
+   
     // Get hunter profile
     async getHunterProfile(req, res) {
       try {
@@ -65,6 +65,11 @@ const hunterController = {
           else nextThreshold = 72000;
         }
         
+        // Calculate completion rate
+        const completionRate = hunter.acceptedBounties.length > 0 
+          ? Math.round((hunter.performance.totalBountiesCalculated / hunter.acceptedBounties.length) * 100) 
+          : 0;
+        
         // Format response data
         const profileData = {
           personalInfo: {
@@ -100,7 +105,8 @@ const hunterController = {
             xpNeeded: Math.max(0, nextThreshold - hunter.xp),
             performance: {
               score: hunter.performance.score,
-              totalBountiesCalculated: hunter.performance.totalBountiesCalculated
+              totalBountiesCalculated: hunter.performance.totalBountiesCalculated,
+              completionRate: completionRate
             }
           },
           achievements: {
@@ -132,6 +138,8 @@ const hunterController = {
           stats: {
             activeBounties: activeBounties,
             totalBounties: hunter.acceptedBounties.length,
+            completedBounties: hunter.performance.totalBountiesCalculated,
+            completionRate: completionRate,
             unreadNotifications: unreadNotifications
           },
           quizStats: {
