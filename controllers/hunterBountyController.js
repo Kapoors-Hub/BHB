@@ -10,27 +10,63 @@ const hunterBountyController = {
     // Get all available bounties
     async getAvailableBounties(req, res) {
         try {
-            const currentDate = new Date();
-
-            // Remove filters temporarily to see all bounties
-            const bounties = await Bounty.find({})
-                .populate('createdBy', 'username');
-
-            return res.status(200).json({
-                status: 200,
-                success: true,
-                message: 'Available bounties fetched successfully',
-                data: bounties
-            });
+          // Get pagination parameters from request query with defaults
+          const page = parseInt(req.query.page) || 1;
+          const limit = parseInt(req.query.limit) || 20;
+          const skip = (page - 1) * limit;
+          
+          // Get filter parameters if needed
+          // const { status, category, minReward } = req.query;
+          
+          // Build the query object (currently showing all bounties)
+          const query = {};
+          
+          // Use lean() for better performance when you don't need Mongoose documents
+          // Use select() to only fetch the fields you actually need
+          // Use projection in populate to only get required fields
+          const [bounties, totalCount] = await Promise.all([
+            Bounty.find(query)
+              .select('title description rewardPrize deadline status category tags createdAt createdBy')
+              .populate('createdBy', 'username name')
+              .sort({ createdAt: -1 })  // Sort by newest first
+              .skip(skip)
+              .limit(limit)
+              .lean(),  // Convert to plain JavaScript objects
+              
+            Bounty.countDocuments(query)  // Get total count for pagination
+          ]);
+      
+          // Calculate pagination metadata
+          const totalPages = Math.ceil(totalCount / limit);
+          const hasNextPage = page < totalPages;
+          const hasPrevPage = page > 1;
+          
+          return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Available bounties fetched successfully',
+            data: {
+              bounties,
+              pagination: {
+                totalCount,
+                totalPages,
+                currentPage: page,
+                limit,
+                hasNextPage,
+                hasPrevPage
+              }
+            }
+          });
         } catch (error) {
-            return res.status(500).json({
-                status: 500,
-                success: false,
-                message: 'Error fetching bounties',
-                error: error.message
-            });
+          console.error('Error in getAvailableBounties:', error);
+          return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error fetching bounties',
+            error: error.message
+          });
         }
-    },
+      },
     // Get single bounty details
     async getBountyDetails(req, res) {
         try {

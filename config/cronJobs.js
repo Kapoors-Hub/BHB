@@ -102,7 +102,7 @@ const initCronJobs = () => {
     });
 
 // Add to config/cronJobs.js
-cron.schedule('33 13 8 * *', async () => {
+cron.schedule('52 16 8 * *', async () => {
     try {
         const currentDate = new Date();
         console.log('Running monthly title revocation job on the 7th:', currentDate.toISOString());
