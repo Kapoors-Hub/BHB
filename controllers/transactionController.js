@@ -54,35 +54,38 @@ const transactionController = {
     // Get wallet summary for a hunter
     async getMyWallet(req, res) {
         try {
-            const hunterId = req.hunter.id;
-            
-            // Get wallet summary from transaction service
-            const walletSummary = await transactionService.getWalletSummary(hunterId);
-            
-            // Get hunter's total earnings directly
-            const hunter = await Hunter.findById(hunterId).select('totalEarnings');
-            
-            // Add total earnings to the wallet summary
-            const enhancedWalletSummary = {
-                ...walletSummary,
-                totalEarnings: hunter.totalEarnings || 0  // Use 0 as fallback if field doesn't exist
-            };
-            
-            return res.status(200).json({
-                status: 200,
-                success: true,
-                message: 'Wallet summary retrieved successfully',
-                data: enhancedWalletSummary
-            });
+          const hunterId = req.hunter.id;
+          
+          // Run both operations in parallel using Promise.all
+          const [walletSummary, hunter] = await Promise.all([
+            transactionService.getWalletSummary(hunterId),
+            Hunter.findById(hunterId)
+              .select('totalEarnings')
+              .lean() // Use lean for better performance
+          ]);
+          
+          // Add total earnings to the wallet summary
+          const enhancedWalletSummary = {
+            ...walletSummary,
+            totalEarnings: hunter?.totalEarnings || 0 // Use optional chaining for safety
+          };
+          
+          return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Wallet summary retrieved successfully',
+            data: enhancedWalletSummary
+          });
         } catch (error) {
-            return res.status(500).json({
-                status: 500,
-                success: false,
-                message: 'Error retrieving wallet summary',
-                error: error.message
-            });
+          console.error('Error in getMyWallet:', error);
+          return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error retrieving wallet summary',
+            error: error.message
+          });
         }
-    },
+      },
     
     // For admins to add funds to a hunter's wallet
     async addFunds(req, res) {
