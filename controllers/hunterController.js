@@ -1250,7 +1250,45 @@ async getAggregateScores(req, res) {
       error: error.message
     });
   }
+},
+// In controllers/hunterController.js (or walletController.js if you prefer)
+
+// Get hunter's wallet balance
+async getWalletBalance(req, res) {
+  try {
+    const hunterId = req.hunter.id;
+    
+    // Find hunter and select only the wallet field
+    const hunter = await Hunter.findById(hunterId).select('wallet totalEarnings');
+    
+    if (!hunter) {
+      return res.status(404).json({
+        status: 404,
+        success: false,
+        message: 'Hunter not found'
+      });
+    }
+    
+    return res.status(200).json({
+      status: 200,
+      success: true,
+      message: 'Wallet balance retrieved successfully',
+      data: {
+        wallet: hunter.wallet,
+        totalEarnings: hunter.totalEarnings
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: 500,
+      success: false,
+      message: 'Error retrieving wallet balance',
+      error: error.message
+    });
+  }
 }
+
+
       
 };
 

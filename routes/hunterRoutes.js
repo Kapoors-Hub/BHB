@@ -75,7 +75,8 @@ router.put('/notifications/:notificationId', validateHunterToken, notificationCo
 
 router.get('/performance', validateHunterToken, hunterController.getMyPerformance);
 
-router.get('/wallet', validateHunterToken, transactionController.getMyWallet);
+// router.get('/wallet', validateHunterToken, transactionController.getMyWallet);
+router.get('/wallet', validateHunterToken, hunterController.getWalletBalance);
 router.get('/transactions', validateHunterToken, transactionController.getMyTransactions);
 router.get('/transactions/all-activities', validateHunterToken, transactionController.getAllMyActivities);
 
