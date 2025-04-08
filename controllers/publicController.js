@@ -123,7 +123,7 @@ async getHunterPublicProfile(req, res) {
       const hunter = await Hunter.findById(hunterId)
         .populate('badges.badge')
         .populate('titles.title')
-        .select('name username xp level guild totalEarnings performance badges titles achievements.bountiesWon.count achievements.firstSubmissions.count achievements.nonProfitBounties.count status createdAt');
+        .select('name username xp level guild totalEarnings performance badges quizStats titles achievements.bountiesWon.count achievements.firstSubmissions.count achievements.nonProfitBounties.count status createdAt');
       console.log(hunter)
       if (!hunter) {
         return res.status(404).json({
