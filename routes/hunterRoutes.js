@@ -37,6 +37,7 @@ router.post('/bounties/:bountyId/accept', validateHunterToken, hunterBountyContr
 router.post('/bounties/:bountyId/quit', validateHunterToken, hunterBountyController.quitBounty);
 router.post('/bounties/:bountyId/submit',validateHunterToken,upload.array('files', 5), hunterBountyController.submitBountyWork);
 router.get('/bounties/:bountyId/score', validateHunterToken, hunterBountyController.getMyScore);
+router.get('/scores/aggregate', validateHunterToken, hunterController.getAggregateScores);
 router.get('/level', validateHunterToken, hunterController.getMyLevel);
 router.get('/bounties/:bountyId/rankings', validateHunterToken, hunterBountyController.getBountyRankings);
 router.get('/rankings', validateHunterToken, hunterBountyController.getMyRankings);
@@ -50,7 +51,6 @@ router.get('/issues/:issueId', validateHunterToken, issueController.getIssue);
 router.put('/issues/:issueId', validateHunterToken, issueController.updateIssue);
 router.put('/issues/:issueId/close', validateHunterToken, issueController.closeIssue);
 router.post('/issues/:issueId/respond', validateHunterToken, issueController.addResponseToIssue);
-// router.get('/public/bounties/:bountyId/rankings', bountyController.getBountyRankings);
 
 // tiitles
 router.get('/titles/my', validateHunterToken, hunterController.getMyTitles);

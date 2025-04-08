@@ -2,10 +2,14 @@
 const cron = require('node-cron');
 const Bounty = require('../models/Bounty');
 const Hunter = require('../models/Hunter');
+const Title = require('../models/Title');
+const transporter = require('../config/mailer');
+const notificationController = require('../controllers/notificationController');
+const TitleAward = require('../models/TitleAward');
 
 const initCronJobs = () => {
     // Add this to your config/cronJobs.js file
-    cron.schedule('00 8 * * *', async () => {
+    cron.schedule('40 18 * * *', async () => {
         try {
 
             // Use IST (UTC+5:30)
@@ -51,10 +55,13 @@ const initCronJobs = () => {
         } catch (error) {
             console.error('Error in daily bounty activation cron job:', error);
         }
+    }, {
+        scheduled: true,
+        timezone: "Asia/Kolkata" // For IST
     });
 
     // Add this to your config/cronJobs.js file
-    cron.schedule('0 0 * * *', async () => {
+    cron.schedule('32 20 * * *', async () => {
         try {
             const currentTime = new Date();
             console.log('Running bounty closure check at midnight:', currentTime.toISOString());
@@ -89,7 +96,115 @@ const initCronJobs = () => {
         } catch (error) {
             console.error('Error in bounty closure cron job:', error);
         }
+    }, {
+        scheduled: true,
+        timezone: "Asia/Kolkata" // For IST
     });
+
+// Add to config/cronJobs.js
+cron.schedule('28 21 7 * *', async () => {
+    try {
+        const currentDate = new Date();
+        console.log('Running monthly title revocation job on the 7th:', currentDate.toISOString());
+        
+        // Find all hunters with titles
+        const hunters = await Hunter.find({
+            'titles.0': { $exists: true } // At least one title exists
+        }).select('name collegeEmail titles');
+        
+        console.log(`Found ${hunters.length} hunters with titles to revoke`);
+        
+        // Process each hunter
+        let totalRevokedTitles = 0;
+        
+        for (const hunter of hunters) {
+            if (!hunter.titles || hunter.titles.length === 0) continue;
+            
+            // Collect titles for tracking
+            const titleIds = hunter.titles.map(title => title.title);
+            const titleInfo = await Title.find({ _id: { $in: titleIds } })
+                .select('name');
+            
+            const titleNames = titleInfo.map(t => t.name);
+            totalRevokedTitles += hunter.titles.length;
+            
+            // Create an expiredTitles array if it doesn't exist
+            if (!hunter.expiredTitles) {
+                await Hunter.findByIdAndUpdate(
+                    hunter._id,
+                    { $set: { expiredTitles: [] } }
+                );
+            }
+            
+            // Move all titles to expiredTitles
+            await Hunter.findByIdAndUpdate(
+                hunter._id,
+                { 
+                    $push: { 
+                        expiredTitles: { 
+                            $each: hunter.titles.map(title => ({
+                                ...title.toObject(),
+                                revokedAt: currentDate
+                            }))
+                        } 
+                    },
+                    $set: { titles: [] } // Clear active titles
+                }
+            );
+            
+            // Update TitleAward entries to mark them as revoked
+            for (const title of hunter.titles) {
+                await TitleAward.updateMany(
+                    { 
+                        hunter: hunter._id,
+                        title: title.title,
+                        isRevoked: false
+                    },
+                    {
+                        $set: {
+                            isRevoked: true,
+                            revokedAt: currentDate
+                        }
+                    }
+                );
+            }
+            
+            // Send notification email
+            await transporter.sendMail({
+                from: process.env.EMAIL_USER,
+                to: hunter.collegeEmail,
+                subject: 'Your Titles Have Been Revoked',
+                text: `
+Hello ${hunter.name},
+
+This is to inform you that the following title(s) have been revoked from your profile:
+${titleNames.map(name => `- ${name}`).join('\n')}
+
+Titles are awarded for specific periods and need to be renewed or earned again. Keep participating in bounties to earn more titles!
+
+Best regards,
+The Bounty Hunter Platform Team
+                `
+            });
+            
+            // Create in-app notification
+            await notificationController.createNotification({
+                hunterId: hunter._id,
+                title: 'Titles Revoked',
+                message: `${hunter.titles.length} title(s) have been revoked from your profile: ${titleNames.join(', ')}`,
+                type: 'system'
+            });
+        }
+        
+        console.log(`Successfully revoked ${totalRevokedTitles} titles from ${hunters.length} hunters`);
+        
+    } catch (error) {
+        console.error('Error in monthly title revocation job:', error);
+    }
+}, {
+    scheduled: true,
+    timezone: "Asia/Kolkata" // For IST
+});
 };
 
 module.exports = initCronJobs;

@@ -56,114 +56,129 @@ const titleController = {
         }
     },
 
-    // Award a title to a hunter
     async awardTitle(req, res) {
-        try {
-            const { titleId, hunterId, reason } = req.body;
-            const adminId = req.admin.id;
+      try {
+          const { titleId, hunterId, reason } = req.body;
+          const adminId = req.admin.id;
           
-            // Validate inputs
-            if (!titleId || !hunterId) {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: 'Title ID and Hunter ID are required'
-                });
-            }
-
-            // Check if title exists
-            const title = await Title.findById(titleId);
-            if (!title || !title.active) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Title not found or inactive'
-                });
-            }
-            console.log(hunterId)
-            // Check if hunter exists
-            const hunter = await Hunter.findById(hunterId);
-            if (!hunter) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Hunter not found'
-                });
-            }
-
-            // Calculate validity period (25th of current month to 25th of next month)
-            const now = new Date();
-            const currentYear = now.getFullYear();
-            const currentMonth = now.getMonth(); // 0-11
-            
-            // Current month's 25th
-            let validFrom = new Date(currentYear, currentMonth, 25);
-            // If today is after the 25th, use next month
-            if (now.getDate() > 25) {
-                validFrom = new Date(currentYear, currentMonth + 1, 25);
-            }
-            
-            // Valid until the 25th of the next month
-            const validUntil = new Date(validFrom);
-            validUntil.setMonth(validUntil.getMonth() + 1);
-
-            // Check if this title is already awarded for this month
-            const existingAward = await TitleAward.findOne({
-                title: titleId,
-                month: validFrom.getMonth() + 1, // 1-12
-                year: validFrom.getFullYear()
-            });
-
-            if (existingAward) {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: 'This title has already been awarded for this month',
-                    data: {
-                        currentHolder: existingAward.hunter
-                    }
-                });
-            }
-
-            // Create title award record
-            const titleAward = await TitleAward.create({
-                title: titleId,
-                hunter: hunterId,
-                month: validFrom.getMonth() + 1, // 1-12
-                year: validFrom.getFullYear(),
-                validFrom,
-                validUntil,
-                awardedBy: adminId,
-                reason: reason || 'Exceptional performance'
-            });
-
-            // Add title to hunter's titles
-            await Hunter.findByIdAndUpdate(hunterId, {
-                $push: {
-                    titles: {
-                        title: titleId,
-                        awardedAt: new Date(),
-                        validUntil,
-                        awardedBy: adminId
-                    }
-                }
-            });
-
-            return res.status(200).json({
-                status: 200,
-                success: true,
-                message: 'Title awarded successfully',
-                data: titleAward
-            });
-        } catch (error) {
-            return res.status(500).json({
-                status: 500,
-                success: false,
-                message: 'Error awarding title',
-                error: error.message
-            });
-        }
-    },
+          // Validate inputs
+          if (!titleId || !hunterId) {
+              return res.status(400).json({
+                  status: 400,
+                  success: false,
+                  message: 'Title ID and Hunter ID are required'
+              });
+          }
+  
+          // Check if title exists
+          const title = await Title.findById(titleId);
+          if (!title || !title.active) {
+              return res.status(404).json({
+                  status: 404,
+                  success: false,
+                  message: 'Title not found or inactive'
+              });
+          }
+          
+          // Check if hunter exists
+          const hunter = await Hunter.findById(hunterId);
+          if (!hunter) {
+              return res.status(404).json({
+                  status: 404,
+                  success: false,
+                  message: 'Hunter not found'
+              });
+          }
+  
+          // Check if this title is already awarded and not revoked
+          const existingAward = await TitleAward.findOne({
+              title: titleId,
+              isRevoked: false
+          });
+  
+          if (existingAward) {
+              return res.status(400).json({
+                  status: 400,
+                  success: false,
+                  message: 'This title is already active and has not been revoked yet',
+                  data: {
+                      currentHolder: existingAward.hunter
+                  }
+              });
+          }
+  
+          // Find existing award record for this month and update it
+          const now = new Date();
+          const currentMonth = now.getMonth() + 1; // 1-12
+          const currentYear = now.getFullYear();
+          
+          let titleAward;
+          const existingMonthAward = await TitleAward.findOne({
+              title: titleId,
+              month: currentMonth,
+              year: currentYear
+          });
+  
+          if (existingMonthAward) {
+              // Update existing record
+              existingMonthAward.hunter = hunterId;
+              existingMonthAward.awardedBy = adminId;
+              existingMonthAward.reason = reason || 'Exceptional performance';
+              existingMonthAward.awardedAt = new Date();
+              existingMonthAward.isRevoked = false;
+              await existingMonthAward.save();
+              
+              titleAward = existingMonthAward;
+          } else {
+              // Create a new record
+              titleAward = await TitleAward.create({
+                  title: titleId,
+                  hunter: hunterId,
+                  month: currentMonth,
+                  year: currentYear,
+                  awardedAt: new Date(),
+                  validUntil: new Date(currentYear, currentMonth, 7), // 7th of next month
+                  awardedBy: adminId,
+                  reason: reason || 'Exceptional performance',
+                  isRevoked: false
+              });
+          }
+  
+          // Add title to hunter's titles
+          await Hunter.findByIdAndUpdate(hunterId, {
+              $push: {
+                  titles: {
+                      title: titleId,
+                      awardedAt: new Date(),
+                      validUntil: titleAward.validUntil,
+                      awardedBy: adminId
+                  }
+              }
+          });
+  
+          // Send notification to hunter
+          await notificationController.createNotification({
+              hunterId,
+              title: 'Title Awarded',
+              message: `You have been awarded the "${title.name}" title.`,
+              type: 'achievement'
+          });
+  
+          return res.status(200).json({
+              status: 200,
+              success: true,
+              message: 'Title awarded successfully',
+              data: titleAward
+          });
+      } catch (error) {
+          return res.status(500).json({
+              status: 500,
+              success: false,
+              message: 'Error awarding title',
+              error: error.message
+          });
+      }
+  },
 
     // Get hunters with active titles
     async getCurrentTitleHolders(req, res) {

@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const Notification = require('../models/Notification');
 const notificationController = require('./notificationController');
 const FoulRecord = require('../models/FoulRecord');
+const Bounty = require('../models/Bounty');
 
 const hunterController = {
 
@@ -1126,6 +1127,111 @@ async getMyFouls(req, res) {
       status: 500,
       success: false,
       message: 'Error retrieving foul records',
+      error: error.message
+    });
+  }
+},
+// In hunterController.js or hunterBountyController.js
+async getAggregateScores(req, res) {
+  try {
+    const hunterId = req.hunter.id;
+
+    // Find all bounties where this hunter has a submission with review
+    const bounties = await Bounty.find({
+      'participants.hunter': hunterId,
+      'participants.submission.review': { $exists: true }
+    });
+    
+    // Initialize score counters
+    const aggregateScores = {
+      adherenceToBrief: 0,
+      conceptualThinking: 0,
+      technicalExecution: 0,
+      originalityCreativity: 0,
+      documentation: 0,
+      totalScore: 0,
+      submissionsCount: 0
+    };
+    
+    // Process each bounty
+    for (const bounty of bounties) {
+      // Find this hunter's submission
+      const participation = bounty.participants.find(
+        p => p.hunter.toString() === hunterId && p.submission && p.submission.review
+      );
+      
+      if (participation) {
+        const review = participation.submission.review;
+        
+        // Add scores
+        aggregateScores.adherenceToBrief += review.adherenceToBrief || 0;
+        aggregateScores.conceptualThinking += review.conceptualThinking || 0;
+        aggregateScores.technicalExecution += review.technicalExecution || 0;
+        aggregateScores.originalityCreativity += review.originalityCreativity || 0;
+        aggregateScores.documentation += review.documentation || 0;
+        aggregateScores.totalScore += review.totalScore || 0;
+        aggregateScores.submissionsCount++;
+      }
+    }
+    
+    // Calculate averages
+    if (aggregateScores.submissionsCount > 0) {
+      aggregateScores.averageScores = {
+        adherenceToBrief: parseFloat((aggregateScores.adherenceToBrief / aggregateScores.submissionsCount).toFixed(1)),
+        conceptualThinking: parseFloat((aggregateScores.conceptualThinking / aggregateScores.submissionsCount).toFixed(1)),
+        technicalExecution: parseFloat((aggregateScores.technicalExecution / aggregateScores.submissionsCount).toFixed(1)),
+        originalityCreativity: parseFloat((aggregateScores.originalityCreativity / aggregateScores.submissionsCount).toFixed(1)),
+        documentation: parseFloat((aggregateScores.documentation / aggregateScores.submissionsCount).toFixed(1)),
+        totalScore: parseFloat((aggregateScores.totalScore / aggregateScores.submissionsCount).toFixed(1))
+      };
+    }
+    
+    // Get hunter's best and worst criteria
+    let bestCriterion = null;
+    let worstCriterion = null;
+    
+    if (aggregateScores.submissionsCount > 0) {
+      const criteriaAvgs = [
+        { name: 'Adherence to Brief', value: aggregateScores.averageScores.adherenceToBrief },
+        { name: 'Conceptual Thinking', value: aggregateScores.averageScores.conceptualThinking },
+        { name: 'Technical Execution', value: aggregateScores.averageScores.technicalExecution },
+        { name: 'Originality/Creativity', value: aggregateScores.averageScores.originalityCreativity },
+        { name: 'Documentation', value: aggregateScores.averageScores.documentation }
+      ];
+      
+      bestCriterion = criteriaAvgs.reduce((prev, current) => 
+        (prev.value > current.value) ? prev : current
+      );
+      
+      worstCriterion = criteriaAvgs.reduce((prev, current) => 
+        (prev.value < current.value) ? prev : current
+      );
+    }
+    
+    return res.status(200).json({
+      status: 200,
+      success: true,
+      message: 'Aggregate scores retrieved successfully',
+      data: {
+        totalScores: {
+          adherenceToBrief: aggregateScores.adherenceToBrief,
+          conceptualThinking: aggregateScores.conceptualThinking,
+          technicalExecution: aggregateScores.technicalExecution,
+          originalityCreativity: aggregateScores.originalityCreativity,
+          documentation: aggregateScores.documentation,
+          totalScore: aggregateScores.totalScore
+        },
+        averageScores: aggregateScores.averageScores || null,
+        submissionsCount: aggregateScores.submissionsCount,
+        bestCriterion,
+        worstCriterion
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: 500,
+      success: false,
+      message: 'Error retrieving aggregate scores',
       error: error.message
     });
   }

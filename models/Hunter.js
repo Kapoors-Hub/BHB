@@ -138,7 +138,27 @@ const hunterSchema = new mongoose.Schema({
       ref: 'Admin'
     }
   }],
-
+// Add to Hunter schema
+expiredTitles: [{
+  title: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Title'
+  },
+  awardedAt: {
+    type: Date
+  },
+  validUntil: {
+    type: Date
+  },
+  awardedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin'
+  },
+  revokedAt: {
+    type: Date,
+    default: Date.now
+  }
+}],
   passes: {
     timeExtension: {
       count: {
