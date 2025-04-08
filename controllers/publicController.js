@@ -246,155 +246,207 @@ const publicController = {
  
   async getPlatformStats(req, res) {
     try {
-      // Get count of verified hunters
-      const totalHunters = await Hunter.countDocuments({ status: 'verified' });
-      
-      // Get sum of reward prizes for all active bounties
-      const activeBounties = await Bounty.find({ status: 'active' });
-      const prizePool = activeBounties.reduce((total, bounty) => total + (bounty.rewardPrize || 0), 0);
-      
-      // Get count of completed bounties
-      const completedBounties = await Bounty.countDocuments({ status: 'completed' });
-      
-      // Calculate additional statistics
-      const totalBounties = await Bounty.countDocuments();
-      const openBounties = await Bounty.countDocuments({ status: 'active' });
-      const upcomingBounties = await Bounty.countDocuments({ status: 'yts' });
-      
-      // Get guild statistics
-      const guildStats = await Hunter.aggregate([
-        // Only consider verified hunters
-        { $match: { status: 'verified', guild: { $exists: true, $ne: null, $ne: '' } } },
+      // Run aggregations in parallel using Promise.all
+      const [bountyStats, hunterStats, guildData, titleHolders] = await Promise.all([
+        // 1. Get all bounty statistics in a single aggregation
+        Bounty.aggregate([
+          {
+            $facet: {
+              'totalBounties': [{ $count: 'count' }],
+              'completedBounties': [{ $match: { status: 'completed' } }, { $count: 'count' }],
+              'openBounties': [{ $match: { status: 'active' } }, { $count: 'count' }],
+              'upcomingBounties': [{ $match: { status: 'yts' } }, { $count: 'count' }],
+              'prizePool': [
+                { $match: { status: 'active' } },
+                { $group: { _id: null, total: { $sum: '$rewardPrize' } } }
+              ]
+            }
+          }
+        ]),
         
-        // Group by guild
-        { $group: {
-            _id: '$guild',
-            totalMembers: { $sum: 1 },
-            totalBountiesWon: { $sum: '$achievements.bountiesWon.count' },
-            totalEarnings: { $sum: '$totalEarnings' }
-        }},
+        // 2. Get hunter statistics
+        Hunter.aggregate([
+          {
+            $facet: {
+              'totalHunters': [
+                { $match: { status: 'verified' } },
+                { $count: 'count' }
+              ]
+            }
+          }
+        ]),
         
-        // Sort by total bounties won (descending)
-        { $sort: { totalBountiesWon: -1 } },
+        // 3. Get guild statistics including leading guild with members in one aggregation
+        Hunter.aggregate([
+          // Match verified hunters with guilds
+          { $match: { status: 'verified', guild: { $exists: true, $ne: null, $ne: '' } } },
+          
+          // Group by guild to get primary stats
+          { 
+            $group: {
+              _id: '$guild',
+              totalMembers: { $sum: 1 },
+              totalBountiesWon: { $sum: '$achievements.bountiesWon.count' },
+              totalEarnings: { $sum: '$totalEarnings' },
+              // Collect member details in an array
+              members: { 
+                $push: { 
+                  id: '$_id', 
+                  username: '$username', 
+                  name: '$name',
+                  bountiesWon: '$achievements.bountiesWon.count', 
+                  earnings: '$totalEarnings' 
+                } 
+              }
+            }
+          },
+          
+          // Sort by bounties won
+          { $sort: { totalBountiesWon: -1 } },
+          
+          // Project the formatted fields
+          { 
+            $project: {
+              _id: 0,
+              name: '$_id',
+              totalMembers: 1,
+              totalBountiesWon: 1,
+              totalEarnings: 1,
+              members: 1
+            }
+          }
+        ]),
         
-        // Limit to top 5 guilds
-        { $limit: 5 },
-        
-        // Project the fields we want
-        { $project: {
-            _id: 0,
-            name: '$_id',
-            totalMembers: 1,
-            totalBountiesWon: 1,
-            totalEarnings: 1
-        }}
+        // 4. Get title holders
+        TitleAward.aggregate([
+          // Match only active awards
+          { 
+            $match: { 
+              validUntil: { $gt: new Date() }, 
+              isRevoked: { $ne: true } 
+            } 
+          },
+          
+          // Join with titles collection
+          {
+            $lookup: {
+              from: 'titles',
+              localField: 'title',
+              foreignField: '_id',
+              as: 'titleData'
+            }
+          },
+          
+          // Join with hunters collection
+          {
+            $lookup: {
+              from: 'hunters',
+              localField: 'hunter',
+              foreignField: '_id',
+              as: 'hunterData'
+            }
+          },
+          
+          // Unwind the arrays created by lookups
+          { $unwind: { path: '$titleData', preserveNullAndEmptyArrays: true } },
+          { $unwind: { path: '$hunterData', preserveNullAndEmptyArrays: true } },
+          
+          // Filter out non-verified hunters
+          { $match: { 'hunterData.status': 'verified' } },
+          
+          // Project the fields we need
+          {
+            $project: {
+              holderUsername: '$hunterData.username',
+              holderName: '$hunterData.name',
+              titleName: { $ifNull: ['$titleData.name', 'Unknown Title'] },
+              titleDescription: { $ifNull: ['$titleData.description', ''] }
+            }
+          }
+        ])
       ]);
-      
-      // Get additional data for the leading guild (if any)
+  
+      // Process bounty statistics
+      const bountyStatsProcessed = {
+        totalBounties: bountyStats[0].totalBounties[0]?.count || 0,
+        completedBounties: bountyStats[0].completedBounties[0]?.count || 0,
+        openBounties: bountyStats[0].openBounties[0]?.count || 0,
+        upcomingBounties: bountyStats[0].upcomingBounties[0]?.count || 0,
+        prizePool: bountyStats[0].prizePool[0]?.total || 0
+      };
+  
+      // Process hunter statistics
+      const hunterStatsProcessed = {
+        totalHunters: hunterStats[0].totalHunters[0]?.count || 0
+      };
+  
+      // Process guild statistics
+      const topGuilds = guildData.slice(0, 5).map(guild => ({
+        name: guild.name,
+        totalMembers: guild.totalMembers,
+        totalBountiesWon: guild.totalBountiesWon,
+        totalEarnings: guild.totalEarnings
+      }));
+  
+      // Process leading guild
       let leadingGuildDetail = null;
-      if (guildStats.length > 0) {
-        const leadingGuild = guildStats[0];
+      if (guildData.length > 0) {
+        const leadingGuild = guildData[0];
         
-        // Get members of the leading guild with their individual contribution
-        const leadingGuildMembers = await Hunter.find(
-          { guild: leadingGuild.name, status: 'verified' }
-        )
-        .select('username name achievements.bountiesWon.count totalEarnings')
-        .sort({ 'achievements.bountiesWon.count': -1 })
-        .limit(10);
-        
-        // Get completed bounties for this guild
+        // Get completed bounties for leading guild in a separate query
+        // This is still separate because it's complex to combine with the other aggregations
         const leadingGuildCompletedBounties = await Bounty.aggregate([
-          // Join with Hunter collection
-          { $lookup: {
+          { 
+            $lookup: {
               from: 'hunters',
               localField: 'participants.hunter',
               foreignField: '_id',
               as: 'hunters'
-          }},
-          
-          // Filter for completed bounties with winners from the leading guild
-          { $match: { 
+            }
+          },
+          { 
+            $match: { 
               status: 'completed',
               'hunters.guild': leadingGuild.name
-          }},
-          
-          // Count the bounties
+            }
+          },
           { $count: 'totalCompleted' }
         ]);
         
         const completedByGuild = leadingGuildCompletedBounties.length > 0 ? 
           leadingGuildCompletedBounties[0].totalCompleted : 0;
         
+        // Sort and limit members for the top guild
+        const topMembers = leadingGuild.members
+          .sort((a, b) => b.bountiesWon - a.bountiesWon)
+          .slice(0, 10);
+        
         leadingGuildDetail = {
-          ...leadingGuild,
+          name: leadingGuild.name,
+          totalMembers: leadingGuild.totalMembers,
+          totalBountiesWon: leadingGuild.totalBountiesWon,
+          totalEarnings: leadingGuild.totalEarnings,
           completedBounties: completedByGuild,
-          topMembers: leadingGuildMembers.map(member => ({
-            id: member._id,
-            username: member.username,
-            name: member.name,
-            bountiesWon: member.achievements.bountiesWon.count,
-            earnings: member.totalEarnings
-          }))
+          topMembers: topMembers
         };
       }
-      
-      // NEW CODE: Get current title holders using TitleAward schema
-      const now = new Date();
-      
-      // Find active title awards
-      const activeTitleAwards = await TitleAward.find({
-        validUntil: { $gt: now },
-        isRevoked: { $ne: true }
-      })
-      .populate({
-        path: 'title',
-        select: 'name description'
-      })
-      .populate({
-        path: 'hunter',
-        select: 'username name status',
-        match: { status: 'verified' }  // Only include verified hunters
-      });
-      
-      // Filter out awards where hunter is not verified and format the data
-      const titleHolders = activeTitleAwards
-        .filter(award => award.hunter) // Filter out null hunters (unverified)
-        .map(award => ({
-          holderUsername: award.hunter.username,
-          holderName: award.hunter.name,
-        //   holderId: award.hunter._id,
-          titleName: award.title?.name || 'Unknown Title',
-          titleDescription: award.title?.description || '',
-        //   validUntil: award.validUntil,
-        //   awardedAt: award.awardedAt,
-        //   month: award.month,
-        //   year: award.year
-        }));
-      
+  
       return res.status(200).json({
         status: 200,
         success: true,
         message: 'Platform statistics retrieved successfully',
         data: {
-          hunterStats: {
-            totalHunters
-          },
-          bountyStats: {
-            totalBounties,
-            completedBounties,
-            openBounties,
-            upcomingBounties,
-            prizePool
-          },
+          hunterStats: hunterStatsProcessed,
+          bountyStats: bountyStatsProcessed,
           guildStats: {
-            topGuilds: guildStats,
+            topGuilds,
             leadingGuild: leadingGuildDetail
           },
-          titleHolders: titleHolders
+          titleHolders
         }
       });
     } catch (error) {
+      console.error('Error in getPlatformStats:', error);
       return res.status(500).json({
         status: 500,
         success: false,
