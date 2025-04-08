@@ -195,6 +195,25 @@ expiredTitles: [{
       default: 0
     }
   },
+
+quizStats: {
+  totalQuizzes: {
+    type: Number,
+    default: 0
+  },
+  totalXpEarned: {
+    type: Number,
+    default: 0
+  },
+  correctAnswers: {
+    type: Number,
+    default: 0
+  },
+  totalQuestions: {
+    type: Number,
+    default: 0
+  }
+},
   achievements: {
     bountiesWon: {
       count: { type: Number, default: 0 },

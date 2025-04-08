@@ -154,85 +154,85 @@ const hunterQuizController = {
         }
     },
 
-// Get a single quiz by ID
-async getSingleQuiz(req, res) {
-    try {
-      const { quizId } = req.params;
-      const hunterId = req.hunter.id;
-  
-      // Find the quiz
-      const quiz = await Quiz.findById(quizId)
-        .populate('createdBy', 'username');
-  
-      if (!quiz) {
-        return res.status(404).json({
-          status: 404,
-          success: false,
-          message: 'Quiz not found'
-        });
-      }
-  
-      // Check if quiz is active
-      if (!quiz.active) {
-        return res.status(400).json({
-          status: 400,
-          success: false,
-          message: 'This quiz is not currently active'
-        });
-      }
-  
-      // Check if hunter has already taken this quiz
-      const quizAttempt = await QuizAttempt.findOne({
-        quiz: quizId,
-        hunter: hunterId,
-        completed: true
-      });
-  
-      const hasCompleted = !!quizAttempt;
-  
-      // Include questions with their complete information, including the new fields
-      const questions = quiz.questions.map(question => {
-        return {
-          _id: question._id,
-          questionText: question.questionText,
-          imageUrl: question.imageUrl,
-          radio: question.radio,       // Include the radio field
-          image: question.image,       // Include the image field
-          options: question.options,   // Include all option details including isCorrect
-          explanation: question.explanation
-        };
-      });
-  
-      return res.status(200).json({
-        status: 200,
-        success: true,
-        message: 'Quiz retrieved successfully',
-        data: {
-          quiz: {
-            _id: quiz._id,
-            title: quiz.title,
-            description: quiz.description,
-            totalQuestions: quiz.totalQuestions,
-            timeDuration: quiz.timeDuration,
-            timeLimited: quiz.timeLimited,
-            category: quiz.category,
-            active: quiz.active,
-            createdBy: quiz.createdBy,
-            createdAt: quiz.createdAt,
-            hasCompleted
-          },
-          questions: hasCompleted ? [] : questions // Only include questions if not completed
+    // Get a single quiz by ID
+    async getSingleQuiz(req, res) {
+        try {
+            const { quizId } = req.params;
+            const hunterId = req.hunter.id;
+
+            // Find the quiz
+            const quiz = await Quiz.findById(quizId)
+                .populate('createdBy', 'username');
+
+            if (!quiz) {
+                return res.status(404).json({
+                    status: 404,
+                    success: false,
+                    message: 'Quiz not found'
+                });
+            }
+
+            // Check if quiz is active
+            if (!quiz.active) {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    message: 'This quiz is not currently active'
+                });
+            }
+
+            // Check if hunter has already taken this quiz
+            const quizAttempt = await QuizAttempt.findOne({
+                quiz: quizId,
+                hunter: hunterId,
+                completed: true
+            });
+
+            const hasCompleted = !!quizAttempt;
+
+            // Include questions with their complete information, including the new fields
+            const questions = quiz.questions.map(question => {
+                return {
+                    _id: question._id,
+                    questionText: question.questionText,
+                    imageUrl: question.imageUrl,
+                    radio: question.radio,       // Include the radio field
+                    image: question.image,       // Include the image field
+                    options: question.options,   // Include all option details including isCorrect
+                    explanation: question.explanation
+                };
+            });
+
+            return res.status(200).json({
+                status: 200,
+                success: true,
+                message: 'Quiz retrieved successfully',
+                data: {
+                    quiz: {
+                        _id: quiz._id,
+                        title: quiz.title,
+                        description: quiz.description,
+                        totalQuestions: quiz.totalQuestions,
+                        timeDuration: quiz.timeDuration,
+                        timeLimited: quiz.timeLimited,
+                        category: quiz.category,
+                        active: quiz.active,
+                        createdBy: quiz.createdBy,
+                        createdAt: quiz.createdAt,
+                        hasCompleted
+                    },
+                    questions: hasCompleted ? [] : questions // Only include questions if not completed
+                }
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500,
+                success: false,
+                message: 'Error retrieving quiz',
+                error: error.message
+            });
         }
-      });
-    } catch (error) {
-      return res.status(500).json({
-        status: 500,
-        success: false,
-        message: 'Error retrieving quiz',
-        error: error.message
-      });
-    }
-  },
+    },
 
     // Get a hunter's quiz history
     async getQuizHistory(req, res) {
@@ -283,13 +283,13 @@ async getSingleQuiz(req, res) {
             const { quizAttemptId } = req.params;
             const { answers } = req.body;
             const hunterId = req.hunter.id;
-    
+
             // Find the attempt with more lenient conditions for better error handling
             const attempt = await QuizAttempt.findOne({
                 _id: quizAttemptId,
                 hunter: hunterId
             });
-    
+
             if (!attempt) {
                 return res.status(404).json({
                     status: 404,
@@ -297,7 +297,7 @@ async getSingleQuiz(req, res) {
                     message: 'Quiz attempt not found'
                 });
             }
-    
+
             // Check if already completed
             if (attempt.completedAt) {
                 return res.status(400).json({
@@ -306,7 +306,7 @@ async getSingleQuiz(req, res) {
                     message: 'Quiz attempt already completed'
                 });
             }
-    
+
             // Get the quiz
             const quiz = await Quiz.findById(attempt.quiz);
             if (!quiz) {
@@ -316,31 +316,31 @@ async getSingleQuiz(req, res) {
                     message: 'Quiz not found'
                 });
             }
-    
+
             // Process answers
             let correctAnswers = 0;
             const processedAnswers = [];
-    
+
             // Validate and process each answer
             for (const answer of answers) {
                 const { questionId, selectedOptionIds } = answer;
-    
+
                 // Find the question
                 const question = quiz.questions.id(questionId);
                 if (!question) continue;
-    
+
                 // Check if answer is correct
                 const correctOptionIds = question.options
                     .filter(opt => opt.isCorrect)
                     .map(opt => opt._id.toString());
-    
+
                 // Simple check - arrays must match exactly (for multiple correct answers)
                 const isCorrect =
                     selectedOptionIds.length === correctOptionIds.length &&
                     selectedOptionIds.every(id => correctOptionIds.includes(id));
-    
+
                 if (isCorrect) correctAnswers++;
-    
+
                 processedAnswers.push({
                     questionId,
                     selectedOptions: selectedOptionIds,
@@ -348,16 +348,16 @@ async getSingleQuiz(req, res) {
                     pointsEarned: isCorrect ? 25 : 0  // 25 points per correct answer
                 });
             }
-    
+
             // Update the attempt
             attempt.answers = processedAnswers;
             attempt.completedAt = new Date();
             attempt.correctAnswers = correctAnswers;
             attempt.totalQuestions = quiz.totalQuestions;
             attempt.xpEarned = correctAnswers * 25;  // 25 XP per correct answer
-    
+
             await attempt.save();
-    
+
             // Get hunter before XP update to track level changes
             const hunterBefore = await Hunter.findById(hunterId);
             const previousLevel = {
@@ -365,17 +365,17 @@ async getSingleQuiz(req, res) {
                 rank: hunterBefore.level.rank
             };
             const previousXP = hunterBefore.xp;
-    
+
             // Update hunter's XP and trigger level update through save (not findByIdAndUpdate)
             hunterBefore.xp += attempt.xpEarned;
             await hunterBefore.save(); // This will trigger the pre-save hook to update level
-    
+
             // Get updated hunter to check new level
             const hunterAfter = await Hunter.findById(hunterId);
-            const levelChanged = 
-                previousLevel.tier !== hunterAfter.level.tier || 
+            const levelChanged =
+                previousLevel.tier !== hunterAfter.level.tier ||
                 previousLevel.rank !== hunterAfter.level.rank;
-    
+
             // Create notification for quiz completion
             await notificationController.createNotification({
                 hunterId: hunterId,
@@ -383,7 +383,7 @@ async getSingleQuiz(req, res) {
                 message: `You've completed "${quiz.title}" quiz and earned ${attempt.xpEarned} XP.`,
                 type: 'quiz'
             });
-    
+
             // Send level up notification if applicable
             if (levelChanged) {
                 await notificationController.createNotification({
@@ -393,7 +393,21 @@ async getSingleQuiz(req, res) {
                     type: 'level'
                 });
             }
-    
+
+            // In the completeQuiz function, after calculating XP earned:
+            await Hunter.findByIdAndUpdate(
+                hunterId,
+                {
+                    $inc: {
+                        xp: xpEarned,
+                        'quizStats.totalQuizzes': 1,
+                        'quizStats.totalXpEarned': xpEarned,
+                        'quizStats.correctAnswers': correctAnswers,
+                        'quizStats.totalQuestions': quiz.totalQuestions
+                    }
+                }
+            );
+
             return res.status(200).json({
                 status: 200,
                 success: true,

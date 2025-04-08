@@ -12,146 +12,153 @@ const Bounty = require('../models/Bounty');
 const hunterController = {
 
     // Get hunter profile
-async getHunterProfile(req, res) {
-    try {
-      const hunterId = req.hunter.id;
-      
-      // Fetch hunter with related data
-      const hunter = await Hunter.findById(hunterId)
-        .populate('badges.badge')
-        .populate('titles.title')
-        .populate('titles.awardedBy', 'username')
-        .populate('acceptedBounties', 'title description status startTime endTime')
-        .select('-resetPasswordOtp -otp -password');
-      
-      if (!hunter) {
-        return res.status(404).json({
-          status: 404,
+    async getHunterProfile(req, res) {
+      try {
+        const hunterId = req.hunter.id;
+        
+        // Fetch hunter with related data
+        const hunter = await Hunter.findById(hunterId)
+          .populate('badges.badge')
+          .populate('titles.title')
+          .populate('titles.awardedBy', 'username')
+          .populate('acceptedBounties', 'title description status startTime endTime')
+          .select('-resetPasswordOtp -otp -password');
+        
+        if (!hunter) {
+          return res.status(404).json({
+            status: 404,
+            success: false,
+            message: 'Hunter not found'
+          });
+        }
+        
+        // Get count of unread notifications
+        const unreadNotifications = await Notification.countDocuments({
+          hunter: hunterId,
+          isRead: false
+        });
+        
+        // Get active bounties count
+        const activeBounties = hunter.acceptedBounties.filter(
+          bounty => bounty.status === 'active'
+        ).length;
+        
+        // Format active titles
+        const now = new Date();
+        const activeTitles = hunter.titles.filter(title => title.validUntil > now);
+        
+        // Calculate XP needed for next level
+        let nextThreshold;
+        const xp = hunter.xp;
+        
+        if (xp < 18000) {  // Bronze tier
+          if (hunter.level.rank === 'Novice') nextThreshold = 6000;
+          else if (hunter.level.rank === 'Specialist') nextThreshold = 12000;
+          else nextThreshold = 18000;
+        } else if (xp < 42000) {  // Silver tier
+          if (hunter.level.rank === 'Novice') nextThreshold = 26000;
+          else if (hunter.level.rank === 'Specialist') nextThreshold = 34000;
+          else nextThreshold = 42000;
+        } else {  // Gold tier
+          if (hunter.level.rank === 'Novice') nextThreshold = 52000;
+          else if (hunter.level.rank === 'Specialist') nextThreshold = 62000;
+          else nextThreshold = 72000;
+        }
+        
+        // Format response data
+        const profileData = {
+          personalInfo: {
+            id: hunter._id,
+            name: hunter.name,
+            username: hunter.username,
+            collegeName: hunter.collegeName,
+            collegeEmail: hunter.collegeEmail,
+            personalEmail: hunter.personalEmail,
+            mobileNumber: hunter.mobileNumber,
+            discipline: hunter.discipline,
+            graduatingYear: hunter.graduatingYear,
+            dateOfBirth: hunter.dateOfBirth,
+            location: {
+              city: hunter.city,
+              state: hunter.state,
+              postalZipCode: hunter.postalZipCode,
+              placeOfResidence: hunter.placeOfResidence
+            },
+            guild: hunter.guild,
+            status: hunter.status,
+            isVerified: hunter.isVerified,
+            adminRemarks: hunter.adminRemarks,
+            createdAt: hunter.createdAt
+          },
+          progression: {
+            xp: hunter.xp,
+            level: {
+              tier: hunter.level.tier,
+              rank: hunter.level.rank
+            },
+            nextLevelAt: nextThreshold,
+            xpNeeded: Math.max(0, nextThreshold - hunter.xp),
+            performance: {
+              score: hunter.performance.score,
+              totalBountiesCalculated: hunter.performance.totalBountiesCalculated
+            }
+          },
+          achievements: {
+            badges: hunter.badges.map(badge => ({
+              id: badge.badge?._id || badge.badge,
+              name: badge.badge?.name || 'Unknown Badge',
+              description: badge.badge?.description,
+              earnedAt: badge.earnedAt
+            })),
+            activeTitles: activeTitles.map(title => ({
+              id: title.title?._id || title.title,
+              name: title.title?.name || 'Unknown Title',
+              description: title.title?.description,
+              awardedAt: title.awardedAt,
+              validUntil: title.validUntil,
+              awardedBy: title.awardedBy?.username || 'System'
+            })),
+            bountiesWon: hunter.achievements.bountiesWon.count,
+            firstSubmissions: hunter.achievements.firstSubmissions.count,
+            nonProfitBounties: hunter.achievements.nonProfitBounties.count
+          },
+          passes: {
+            timeExtension: hunter.passes.timeExtension.count,
+            resetFoul: hunter.passes.resetFoul.count,
+            booster: hunter.passes.booster.count,
+            seasonal: hunter.passes.seasonal.count,
+            consecutiveWins: hunter.passes.consecutiveWins
+          },
+          stats: {
+            activeBounties: activeBounties,
+            totalBounties: hunter.acceptedBounties.length,
+            unreadNotifications: unreadNotifications
+          },
+          quizStats: {
+            totalQuizzes: hunter.quizStats?.totalQuizzes || 0,
+            totalXpEarned: hunter.quizStats?.totalXpEarned || 0,
+            correctAnswers: hunter.quizStats?.correctAnswers || 0,
+            totalQuestions: hunter.quizStats?.totalQuestions || 0,
+            accuracy: hunter.quizStats?.totalQuestions ? 
+              Math.round((hunter.quizStats.correctAnswers / hunter.quizStats.totalQuestions) * 100) : 0
+          }
+        };
+        
+        return res.status(200).json({
+          status: 200,
+          success: true,
+          message: 'Profile retrieved successfully',
+          data: profileData
+        });
+      } catch (error) {
+        return res.status(500).json({
+          status: 500,
           success: false,
-          message: 'Hunter not found'
+          message: 'Error retrieving profile',
+          error: error.message
         });
       }
-      
-      // Get count of unread notifications
-      const unreadNotifications = await Notification.countDocuments({
-        hunter: hunterId,
-        isRead: false
-      });
-      
-      // Get active bounties count
-      const activeBounties = hunter.acceptedBounties.filter(
-        bounty => bounty.status === 'active'
-      ).length;
-      
-      // Format active titles
-      const now = new Date();
-      const activeTitles = hunter.titles.filter(title => title.validUntil > now);
-      
-      // Calculate XP needed for next level
-      let nextThreshold;
-      const xp = hunter.xp;
-      
-      if (xp < 18000) {  // Bronze tier
-        if (hunter.level.rank === 'Novice') nextThreshold = 6000;
-        else if (hunter.level.rank === 'Specialist') nextThreshold = 12000;
-        else nextThreshold = 18000;
-      } else if (xp < 42000) {  // Silver tier
-        if (hunter.level.rank === 'Novice') nextThreshold = 26000;
-        else if (hunter.level.rank === 'Specialist') nextThreshold = 34000;
-        else nextThreshold = 42000;
-      } else {  // Gold tier
-        if (hunter.level.rank === 'Novice') nextThreshold = 52000;
-        else if (hunter.level.rank === 'Specialist') nextThreshold = 62000;
-        else nextThreshold = 72000;
-      }
-      
-      // Format response data
-      const profileData = {
-        personalInfo: {
-          id: hunter._id,
-          name: hunter.name,
-          username: hunter.username,
-          collegeName: hunter.collegeName,
-          collegeEmail: hunter.collegeEmail,
-          personalEmail: hunter.personalEmail,
-          mobileNumber: hunter.mobileNumber,
-          discipline: hunter.discipline,
-          graduatingYear: hunter.graduatingYear,
-          dateOfBirth: hunter.dateOfBirth,
-          location: {
-            city: hunter.city,
-            state: hunter.state,
-            postalZipCode: hunter.postalZipCode,
-            placeOfResidence: hunter.placeOfResidence
-          },
-          guild: hunter.guild,
-          status: hunter.status,
-          isVerified: hunter.isVerified,
-          adminRemarks: hunter.adminRemarks,
-          createdAt: hunter.createdAt
-        },
-        progression: {
-          xp: hunter.xp,
-          level: {
-            tier: hunter.level.tier,
-            rank: hunter.level.rank
-          },
-          nextLevelAt: nextThreshold,
-          xpNeeded: Math.max(0, nextThreshold - hunter.xp),
-          performance: {
-            score: hunter.performance.score,
-            totalBountiesCalculated: hunter.performance.totalBountiesCalculated
-          }
-        },
-        achievements: {
-          badges: hunter.badges.map(badge => ({
-            id: badge.badge?._id || badge.badge,
-            name: badge.badge?.name || 'Unknown Badge',
-            description: badge.badge?.description,
-            earnedAt: badge.earnedAt
-          })),
-          activeTitles: activeTitles.map(title => ({
-            id: title.title?._id || title.title,
-            name: title.title?.name || 'Unknown Title',
-            description: title.title?.description,
-            awardedAt: title.awardedAt,
-            validUntil: title.validUntil,
-            awardedBy: title.awardedBy?.username || 'System'
-          })),
-          bountiesWon: hunter.achievements.bountiesWon.count,
-          firstSubmissions: hunter.achievements.firstSubmissions.count,
-          nonProfitBounties: hunter.achievements.nonProfitBounties.count
-        },
-        passes: {
-          timeExtension: hunter.passes.timeExtension.count,
-          resetFoul: hunter.passes.resetFoul.count,
-          booster: hunter.passes.booster.count,
-          seasonal: hunter.passes.seasonal.count,
-          consecutiveWins: hunter.passes.consecutiveWins
-        },
-        stats: {
-          activeBounties: activeBounties,
-          totalBounties: hunter.acceptedBounties.length,
-          unreadNotifications: unreadNotifications
-        }
-      };
-      
-      return res.status(200).json({
-        status: 200,
-        success: true,
-        message: 'Profile retrieved successfully',
-        data: profileData
-      });
-    } catch (error) {
-      return res.status(500).json({
-        status: 500,
-        success: false,
-        message: 'Error retrieving profile',
-        error: error.message
-      });
-    }
-  },  
-
+    },
     // Register new hunter
     async register(req, res) {
         const hunterData = req.body;

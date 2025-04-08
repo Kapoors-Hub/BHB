@@ -204,7 +204,15 @@ async getHunterPublicProfile(req, res) {
           bountiesWon: hunter.achievements.bountiesWon.count,
           firstSubmissions: hunter.achievements.firstSubmissions.count,
           nonProfitBounties: hunter.achievements.nonProfitBounties.count
-        }
+        },
+        quizStats: {
+            totalQuizzes: hunter.quizStats?.totalQuizzes || 0,
+            totalXpEarned: hunter.quizStats?.totalXpEarned || 0,
+            correctAnswers: hunter.quizStats?.correctAnswers || 0,
+            totalQuestions: hunter.quizStats?.totalQuestions || 0,
+            accuracy: hunter.quizStats?.totalQuestions ? 
+              Math.round((hunter.quizStats.correctAnswers / hunter.quizStats.totalQuestions) * 100) : 0
+          }
       };
       
       return res.status(200).json({
