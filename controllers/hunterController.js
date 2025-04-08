@@ -102,7 +102,7 @@ const hunterController = {
               rank: hunter.level.rank
             },
             nextLevelAt: nextThreshold,
-            xpNeeded: Math.max(0, nextThreshold - hunter.xp),
+            xpNeeded: nextThreshold - hunter.xp,
             performance: {
               score: hunter.performance.score,
               totalBountiesCalculated: hunter.performance.totalBountiesCalculated,
