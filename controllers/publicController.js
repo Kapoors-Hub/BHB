@@ -363,13 +363,13 @@ const publicController = {
         .map(award => ({
           holderUsername: award.hunter.username,
           holderName: award.hunter.name,
-          holderId: award.hunter._id,
+        //   holderId: award.hunter._id,
           titleName: award.title?.name || 'Unknown Title',
           titleDescription: award.title?.description || '',
-          validUntil: award.validUntil,
-          awardedAt: award.awardedAt,
-          month: award.month,
-          year: award.year
+        //   validUntil: award.validUntil,
+        //   awardedAt: award.awardedAt,
+        //   month: award.month,
+        //   year: award.year
         }));
       
       return res.status(200).json({
