@@ -1,6 +1,7 @@
 // controllers/publicController.js
 const Bounty = require('../models/Bounty');
 const Hunter = require('../models/Hunter');
+const TitleAward = require('../models/TitleAward');
 
 const publicController = {
   // Search hunters by guild, level, with sorting options
@@ -115,16 +116,20 @@ const publicController = {
   },
 
 
-async getHunterPublicProfile(req, res) {
+  async getHunterPublicProfile(req, res) {
     try {
       const { hunterId } = req.params;
       
       // Fetch hunter with related data, but only public information
       const hunter = await Hunter.findById(hunterId)
         .populate('badges.badge')
-        .populate('titles.title')
+        .populate({
+          path: 'titles.title',
+          select: 'name description' // Ensure we select title name and description
+        })
         .select('name username xp level guild totalEarnings performance badges quizStats titles achievements.bountiesWon.count achievements.firstSubmissions.count achievements.nonProfitBounties.count status createdAt');
-      console.log(hunter)
+      
+      console.log(hunter);
       if (!hunter) {
         return res.status(404).json({
           status: 404,
@@ -199,20 +204,28 @@ async getHunterPublicProfile(req, res) {
           activeTitles: activeTitles.map(title => ({
             id: title.title?._id || title.title,
             name: title.title?.name || 'Unknown Title',
-            description: title.title?.description
+            description: title.title?.description,
+            titleHolder: hunter.username // Include the title holder's username
           })),
+          currentTitles: activeTitles.length > 0 ? {
+            titleHolder: hunter.username,
+            titles: activeTitles.map(title => ({
+              name: title.title?.name || 'Unknown Title',
+              description: title.title?.description
+            }))
+          } : null,
           bountiesWon: hunter.achievements.bountiesWon.count,
           firstSubmissions: hunter.achievements.firstSubmissions.count,
           nonProfitBounties: hunter.achievements.nonProfitBounties.count
         },
         quizStats: {
-            totalQuizzes: hunter.quizStats?.totalQuizzes || 0,
-            totalXpEarned: hunter.quizStats?.totalXpEarned || 0,
-            correctAnswers: hunter.quizStats?.correctAnswers || 0,
-            totalQuestions: hunter.quizStats?.totalQuestions || 0,
-            accuracy: hunter.quizStats?.totalQuestions ? 
-              Math.round((hunter.quizStats.correctAnswers / hunter.quizStats.totalQuestions) * 100) : 0
-          }
+          totalQuizzes: hunter.quizStats?.totalQuizzes || 0,
+          totalXpEarned: hunter.quizStats?.totalXpEarned || 0,
+          correctAnswers: hunter.quizStats?.correctAnswers || 0,
+          totalQuestions: hunter.quizStats?.totalQuestions || 0,
+          accuracy: hunter.quizStats?.totalQuestions ? 
+            Math.round((hunter.quizStats.correctAnswers / hunter.quizStats.totalQuestions) * 100) : 0
+        }
       };
       
       return res.status(200).json({
@@ -230,9 +243,8 @@ async getHunterPublicProfile(req, res) {
       });
     }
   },
-
  
-async getPlatformStats(req, res) {
+  async getPlatformStats(req, res) {
     try {
       // Get count of verified hunters
       const totalHunters = await Hunter.countDocuments({ status: 'verified' });
@@ -327,6 +339,39 @@ async getPlatformStats(req, res) {
         };
       }
       
+      // NEW CODE: Get current title holders using TitleAward schema
+      const now = new Date();
+      
+      // Find active title awards
+      const activeTitleAwards = await TitleAward.find({
+        validUntil: { $gt: now },
+        isRevoked: { $ne: true }
+      })
+      .populate({
+        path: 'title',
+        select: 'name description'
+      })
+      .populate({
+        path: 'hunter',
+        select: 'username name status',
+        match: { status: 'verified' }  // Only include verified hunters
+      });
+      
+      // Filter out awards where hunter is not verified and format the data
+      const titleHolders = activeTitleAwards
+        .filter(award => award.hunter) // Filter out null hunters (unverified)
+        .map(award => ({
+          holderUsername: award.hunter.username,
+          holderName: award.hunter.name,
+          holderId: award.hunter._id,
+          titleName: award.title?.name || 'Unknown Title',
+          titleDescription: award.title?.description || '',
+          validUntil: award.validUntil,
+          awardedAt: award.awardedAt,
+          month: award.month,
+          year: award.year
+        }));
+      
       return res.status(200).json({
         status: 200,
         success: true,
@@ -345,7 +390,8 @@ async getPlatformStats(req, res) {
           guildStats: {
             topGuilds: guildStats,
             leadingGuild: leadingGuildDetail
-          }
+          },
+          titleHolders: titleHolders
         }
       });
     } catch (error) {
