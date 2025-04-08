@@ -399,7 +399,7 @@ const hunterQuizController = {
                 hunterId,
                 {
                     $inc: {
-                        xp: xpEarned,
+                        xp: attempt.xpEarned,
                         'quizStats.totalQuizzes': 1,
                         'quizStats.totalXpEarned': xpEarned,
                         'quizStats.correctAnswers': correctAnswers,
