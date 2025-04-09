@@ -105,6 +105,7 @@ const hunterController = {
             xpNeeded: nextThreshold - hunter.xp,
             performance: {
               score: hunter.performance.score,
+              highestScore: hunter.performance.highestScore,
               totalBountiesCalculated: hunter.performance.totalBountiesCalculated,
               completionRate: completionRate
             }
