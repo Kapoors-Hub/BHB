@@ -363,16 +363,122 @@ const totalParticipants = bounty.participants.length;
     },
 
     // Submit Bounty
+    // async submitBountyWork(req, res) {
+    //     try {
+    //         const { bountyId } = req.params;
+    //         const hunterId = req.hunter.id;
+    //         const { description } = req.body;
+    //         const files = req.files; // Multer adds files to req
+
+    //         // Find the bounty
+    //         const bounty = await Bounty.findById(bountyId);
+
+    //         if (!bounty) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Bounty not found'
+    //             });
+    //         }
+
+    //         // Check if hunter is a participant
+    //         const isParticipant = bounty.participants.some(
+    //             p => p.hunter.toString() === hunterId && p.status === 'active'
+    //         );
+
+    //         if (!isParticipant) {
+    //             return res.status(403).json({
+    //                 status: 403,
+    //                 success: false,
+    //                 message: 'You are not a participant of this bounty'
+    //             });
+    //         }
+
+    //         // Check if bounty is still active
+    //         if (bounty.status !== 'active') {
+    //             return res.status(400).json({
+    //                 status: 400,
+    //                 success: false,
+    //                 message: 'Bounty is not active for submissions'
+    //             });
+    //         }
+
+    //         // Check if submission is within time limit
+    //         const currentTime = new Date();
+    //         if (currentTime > bounty.endTime) {
+    //             return res.status(400).json({
+    //                 status: 400,
+    //                 success: false,
+    //                 message: 'Submission deadline has passed'
+    //             });
+    //         }
+
+    //         // Process uploaded files
+    //         const fileDetails = files.map(file => ({
+    //             fileName: file.originalname,
+    //             filePath: file.path,
+    //             uploadedAt: new Date()
+    //         }));
+
+    //         // Update participant's submission
+    //         await Bounty.findOneAndUpdate(
+    //             {
+    //                 _id: bountyId,
+    //                 'participants.hunter': hunterId
+    //             },
+    //             {
+    //                 $set: {
+    //                     'participants.$.submission': {
+    //                         description,
+    //                         files: fileDetails,
+    //                         submittedAt: new Date()
+    //                     },
+    //                     'participants.$.status': 'completed'
+    //                 }
+    //             }
+    //         );
+
+    //         await notificationController.createNotification({
+    //             hunterId: hunterId,
+    //             title: 'Submission Successful',
+    //             message: `Your work for bounty "${bounty.title}" has been submitted successfully.`,
+    //             type: 'bounty',
+    //             relatedItem: bounty._id,
+    //             itemModel: 'Bounty'
+    //         });
+
+    //         return res.status(200).json({
+    //             status: 200,
+    //             success: true,
+    //             message: 'Work submitted successfully',
+    //             data: {
+    //                 submissionTime: new Date(),
+    //                 bountyTitle: bounty.title,
+    //                 filesUploaded: fileDetails.map(f => f.fileName)
+    //             }
+    //         });
+
+    //     } catch (error) {
+    //         console.error('Submission error:', error);
+    //         return res.status(500).json({
+    //             status: 500,
+    //             success: false,
+    //             message: 'Error submitting work',
+    //             error: error.message
+    //         });
+    //     }
+    // },
+
     async submitBountyWork(req, res) {
         try {
             const { bountyId } = req.params;
             const hunterId = req.hunter.id;
             const { description } = req.body;
             const files = req.files; // Multer adds files to req
-
+    
             // Find the bounty
             const bounty = await Bounty.findById(bountyId);
-
+    
             if (!bounty) {
                 return res.status(404).json({
                     status: 404,
@@ -380,46 +486,53 @@ const totalParticipants = bounty.participants.length;
                     message: 'Bounty not found'
                 });
             }
-
-            // Check if hunter is a participant
-            const isParticipant = bounty.participants.some(
+    
+            // Find hunter's participation and check status
+            const participantIndex = bounty.participants.findIndex(
                 p => p.hunter.toString() === hunterId && p.status === 'active'
             );
-
-            if (!isParticipant) {
+    
+            if (participantIndex === -1) {
                 return res.status(403).json({
                     status: 403,
                     success: false,
-                    message: 'You are not a participant of this bounty'
+                    message: 'You are not an active participant of this bounty'
                 });
             }
-
+    
+            const participant = bounty.participants[participantIndex];
+    
             // Check if bounty is still active
-            // if (bounty.status !== 'active') {
-            //     return res.status(400).json({
-            //         status: 400,
-            //         success: false,
-            //         message: 'Bounty is not active for submissions'
-            //     });
-            // }
-
-            // Check if submission is within time limit
-            const currentTime = new Date();
-            if (currentTime > bounty.endTime) {
+            if (bounty.status !== 'active') {
                 return res.status(400).json({
                     status: 400,
                     success: false,
-                    message: 'Submission deadline has passed'
+                    message: 'Bounty is not active for submissions'
                 });
             }
-
+    
+            // Check if submission is within time limit, considering time extension
+            const currentTime = new Date();
+            
+            // If hunter has used a time extension, use their personal deadline
+            const effectiveDeadline = participant.extendedEndTime || bounty.endTime;
+            
+            if (currentTime > effectiveDeadline) {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    message: 'Submission deadline has passed' + 
+                        (participant.extendedEndTime ? ' (including your time extension)' : '')
+                });
+            }
+    
             // Process uploaded files
             const fileDetails = files.map(file => ({
                 fileName: file.originalname,
                 filePath: file.path,
                 uploadedAt: new Date()
             }));
-
+    
             // Update participant's submission
             await Bounty.findOneAndUpdate(
                 {
@@ -437,7 +550,25 @@ const totalParticipants = bounty.participants.length;
                     }
                 }
             );
-
+    
+            // Check if hunter is first to submit
+            const isFirstSubmission = !bounty.participants.some(p => 
+                p.hunter.toString() !== hunterId && // Not the current hunter
+                p.submission && p.submission.submittedAt // Has already submitted
+            );
+    
+            // If this is the first submission, update the hunter's achievements
+            if (isFirstSubmission) {
+                await Hunter.findByIdAndUpdate(
+                    hunterId,
+                    {
+                        $inc: { 'achievements.firstSubmissions.count': 1 },
+                        $push: { 'achievements.firstSubmissions.bountyIds': bountyId }
+                    }
+                );
+            }
+    
+            // Create notification about successful submission
             await notificationController.createNotification({
                 hunterId: hunterId,
                 title: 'Submission Successful',
@@ -446,7 +577,19 @@ const totalParticipants = bounty.participants.length;
                 relatedItem: bounty._id,
                 itemModel: 'Bounty'
             });
-
+    
+            // Add first submission notification if applicable
+            if (isFirstSubmission) {
+                await notificationController.createNotification({
+                    hunterId: hunterId,
+                    title: 'First Submission!',
+                    message: `Congratulations! You were the first to submit work for "${bounty.title}".`,
+                    type: 'achievement',
+                    relatedItem: bounty._id,
+                    itemModel: 'Bounty'
+                });
+            }
+    
             return res.status(200).json({
                 status: 200,
                 success: true,
@@ -454,10 +597,14 @@ const totalParticipants = bounty.participants.length;
                 data: {
                     submissionTime: new Date(),
                     bountyTitle: bounty.title,
-                    filesUploaded: fileDetails.map(f => f.fileName)
+                    filesUploaded: fileDetails.map(f => f.fileName),
+                    isFirstSubmission,
+                    deadlineUsed: participant.extendedEndTime ? 'extended' : 'original',
+                    originalDeadline: bounty.endTime,
+                    extendedDeadline: participant.extendedEndTime
                 }
             });
-
+    
         } catch (error) {
             console.error('Submission error:', error);
             return res.status(500).json({

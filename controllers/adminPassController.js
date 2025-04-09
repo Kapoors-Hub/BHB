@@ -1,24 +1,43 @@
 // controllers/adminPassController.js
-const Pass = require('../models/Pass');
+const { PassType, HunterPass, PassUsage, PassReset } = require('../models/Pass');
+const { getDefaultDisplayName } = require('../utils/passHelper');
 
 const adminPassController = {
     // Create a new pass type
     async createPass(req, res) {
         try {
-            const { name, passType, description, effectDuration, boostPercentage } = req.body;
+            const { 
+                name, 
+                displayName,
+                description, 
+                effectDuration, 
+                boostPercentage,
+                availabilityRule,
+                stackable,
+                active
+            } = req.body;
             const adminId = req.admin.id;
-
-            // Validate passType
-            if (!['timeExtension', 'resetFoul', 'booster', 'seasonal'].includes(passType)) {
+    
+            // Validate pass name
+            if (!['timeExtension', 'cleanSlate', 'booster', 'seasonal'].includes(name)) {
                 return res.status(400).json({
                     status: 400,
                     success: false,
-                    message: 'Invalid pass type. Must be timeExtension, resetFoul, booster, or seasonal.'
+                    message: 'Invalid pass name. Must be timeExtension, cleanSlate, booster, or seasonal.'
                 });
             }
-
-            // Check if pass already exists
-            const existingPass = await Pass.findOne({ name });
+    
+            // Validate availability rule
+            if (!['monthly', 'bountyWin', 'consecutiveWins', 'seasonTop'].includes(availabilityRule)) {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    message: 'Invalid availability rule. Must be monthly, bountyWin, consecutiveWins, or seasonTop.'
+                });
+            }
+    
+            // Check if pass type already exists
+            const existingPass = await PassType.findOne({ name });
             if (existingPass) {
                 return res.status(400).json({
                     status: 400,
@@ -26,30 +45,32 @@ const adminPassController = {
                     message: 'A pass with this name already exists'
                 });
             }
-
-            // Create the pass
-            const pass = await Pass.create({
+    
+            // Create the pass type
+            const passType = await PassType.create({
                 name,
-                passType,
+                displayName: displayName || getDefaultDisplayName(name),
                 description,
-                effectDuration: effectDuration || (passType === 'timeExtension' ? 12 : undefined),
-                boostPercentage: boostPercentage || (passType === 'booster' ? 25 : undefined),
-                createdBy: adminId
+                effectDuration: effectDuration || (name === 'timeExtension' ? 12 : null),
+                boostPercentage: boostPercentage || (name === 'booster' ? 25 : null),
+                availabilityRule,
+                stackable: stackable !== undefined ? stackable : true,
+                active: active !== undefined ? active : true
             });
-
+    
             return res.status(201).json({
                 status: 201,
                 success: true,
-                message: 'Pass created successfully',
+                message: 'Pass type created successfully',
                 data: {
-                    pass
+                    passType
                 }
             });
         } catch (error) {
             return res.status(500).json({
                 status: 500,
                 success: false,
-                message: 'Error creating pass',
+                message: 'Error creating pass type',
                 error: error.message
             });
         }

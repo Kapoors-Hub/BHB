@@ -63,10 +63,10 @@ router.get('/quizzes/history', validateHunterToken, hunterQuizController.getQuiz
 router.post('/quizzes/attempts/:quizAttemptId/complete', validateHunterToken, hunterQuizController.completeQuiz);
 
 // Passes
-router.get('/passes', validateHunterToken, passController.getHunterPasses);
-router.post('/passes/time-extension/:bountyId', validateHunterToken, passController.useTimeExtensionPass);
-router.post('/passes/reset-foul/:foulRecordId', validateHunterToken, passController.useResetFoulPass);
-router.post('/passes/booster/:bountyId', validateHunterToken, passController.useBoosterPass);
+// router.get('/passes', validateHunterToken, passController.getHunterPasses);
+// router.post('/passes/time-extension/:bountyId', validateHunterToken, passController.useTimeExtensionPass);
+// router.post('/passes/reset-foul/:foulRecordId', validateHunterToken, passController.useResetFoulPass);
+// router.post('/passes/booster/:bountyId', validateHunterToken, passController.useBoosterPass);
 
 // Notification routes
 router.get('/notifications', validateHunterToken, notificationController.getNotifications);
@@ -85,6 +85,11 @@ router.get('/withdrawals', validateHunterToken, withdrawalController.getMyWithdr
 router.put('/withdrawals/:requestId/cancel', validateHunterToken, withdrawalController.cancelWithdrawalRequest);
 
 router.get('/fouls', validateHunterToken, hunterController.getMyFouls);
+
+router.post('/passes/clean-slate/:foulRecordId', validateHunterToken, passController.useCleanSlatePass);
+router.get('/passes', validateHunterToken, passController.getHunterPasses);
+router.post('/passes/time-extension/:bountyId', validateHunterToken, passController.useTimeExtensionPass);
+router.post('/passes/booster/:bountyId', validateHunterToken, passController.useBoosterPass);
 
 module.exports = router;
 
