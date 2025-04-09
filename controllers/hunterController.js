@@ -129,13 +129,13 @@ const hunterController = {
             firstSubmissions: hunter.achievements.firstSubmissions.count,
             nonProfitBounties: hunter.achievements.nonProfitBounties.count
           },
-          passes: {
-            timeExtension: hunter.passes.timeExtension.count,
-            resetFoul: hunter.passes.resetFoul.count,
-            booster: hunter.passes.booster.count,
-            seasonal: hunter.passes.seasonal.count,
-            consecutiveWins: hunter.passes.consecutiveWins
-          },
+          // passes: {
+          //   timeExtension: hunter.passes.timeExtension.count,
+          //   resetFoul: hunter.passes.resetFoul.count,
+          //   booster: hunter.passes.booster.count,
+          //   seasonal: hunter.passes.seasonal.count,
+          //   consecutiveWins: hunter.passes.consecutiveWins
+          // },
           stats: {
             activeBounties: activeBounties,
             totalBounties: hunter.acceptedBounties.length,

@@ -1,6 +1,7 @@
 const Bounty = require('../models/Bounty');
 const Lord = require('../models/Lord');
 const Hunter = require('../models/Hunter');
+const Badge = require("../models/Badge");
 const { checkAndAwardBadges } = require('../services/badgeService');
 const { calculateReviewXP, updateHunterXP } = require('../services/xpService');
 const passController = require("./passController");
@@ -936,6 +937,8 @@ const bountyController = {
                         relatedItem: bountyId,
                         itemModel: 'Bounty'
                     });
+
+                    await checkAndAwardBadges(participant.hunter._id);
                 }
     
                 console.log(`Updated nonProfitBounties count for ${reviewedParticipants.length} hunters`);
@@ -1216,7 +1219,7 @@ const bountyController = {
                     relatedItem: bountyId,
                     itemModel: 'Bounty'
                 });
-            }
+            }t
     
             // Save bounty with updated review statuses
             await bounty.save();
