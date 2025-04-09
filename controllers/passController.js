@@ -232,97 +232,97 @@ const passController = {
     // },
     
     // Use booster pass
-    async useBoosterPass(req, res) {
-        try {
-            const { bountyId } = req.params;
-            const hunterId = req.hunter.id;
+    // async useBoosterPass(req, res) {
+    //     try {
+    //         const { bountyId } = req.params;
+    //         const hunterId = req.hunter.id;
             
-            const hunter = await Hunter.findById(hunterId);
-            if (!hunter) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Hunter not found'
-                });
-            }
+    //         const hunter = await Hunter.findById(hunterId);
+    //         if (!hunter) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Hunter not found'
+    //             });
+    //         }
             
-            // Check if hunter has a booster pass
-            if (hunter.passes.booster.count <= 0) {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: 'No booster passes available'
-                });
-            }
+    //         // Check if hunter has a booster pass
+    //         if (hunter.passes.booster.count <= 0) {
+    //             return res.status(400).json({
+    //                 status: 400,
+    //                 success: false,
+    //                 message: 'No booster passes available'
+    //             });
+    //         }
             
-            // Check if hunter is participating in the bounty
-            const bounty = await Bounty.findOne({
-                _id: bountyId,
-                'participants.hunter': hunterId
-            });
+    //         // Check if hunter is participating in the bounty
+    //         const bounty = await Bounty.findOne({
+    //             _id: bountyId,
+    //             'participants.hunter': hunterId
+    //         });
             
-            if (!bounty) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Bounty not found or you are not a participant'
-                });
-            }
+    //         if (!bounty) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Bounty not found or you are not a participant'
+    //             });
+    //         }
             
-            // Check if bounty is active (can only use before completion)
-            if (bounty.status !== 'active') {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: 'Booster pass can only be used for active bounties'
-                });
-            }
+    //         // Check if bounty is active (can only use before completion)
+    //         if (bounty.status !== 'active') {
+    //             return res.status(400).json({
+    //                 status: 400,
+    //                 success: false,
+    //                 message: 'Booster pass can only be used for active bounties'
+    //             });
+    //         }
             
-            // Use the pass
-            await Hunter.findByIdAndUpdate(hunterId, {
-                $inc: { 'passes.booster.count': -1 }
-            });
+    //         // Use the pass
+    //         await Hunter.findByIdAndUpdate(hunterId, {
+    //             $inc: { 'passes.booster.count': -1 }
+    //         });
             
-            // Create pass usage record
-            const passRecord = await Pass.create({
-                hunter: hunterId,
-                passType: 'booster',
-                relatedBounty: bountyId,
-                status: 'active'
-            });
+    //         // Create pass usage record
+    //         const passRecord = await Pass.create({
+    //             hunter: hunterId,
+    //             passType: 'booster',
+    //             relatedBounty: bountyId,
+    //             status: 'active'
+    //         });
             
-            // Update bounty participant to mark booster active
-            await Bounty.findOneAndUpdate(
-                { 
-                    _id: bountyId,
-                    'participants.hunter': hunterId
-                },
-                {
-                    $set: {
-                        'participants.$.boosterActive': true
-                    }
-                }
-            );
+    //         // Update bounty participant to mark booster active
+    //         await Bounty.findOneAndUpdate(
+    //             { 
+    //                 _id: bountyId,
+    //                 'participants.hunter': hunterId
+    //             },
+    //             {
+    //                 $set: {
+    //                     'participants.$.boosterActive': true
+    //                 }
+    //             }
+    //         );
             
-            return res.status(200).json({
-                status: 200,
-                success: true,
-                message: 'Booster pass activated successfully',
-                data: {
-                    bountyTitle: bounty.title,
-                    xpBoostPercentage: 25, // 125% of normal XP
-                    remainingPasses: hunter.passes.booster.count - 1
-                }
-            });
-        } catch (error) {
-            return res.status(500).json({
-                status: 500,
-                success: false,
-                message: 'Error using booster pass',
-                error: error.message
-            });
-        }
-    },
+    //         return res.status(200).json({
+    //             status: 200,
+    //             success: true,
+    //             message: 'Booster pass activated successfully',
+    //             data: {
+    //                 bountyTitle: bounty.title,
+    //                 xpBoostPercentage: 25, // 125% of normal XP
+    //                 remainingPasses: hunter.passes.booster.count - 1
+    //             }
+    //         });
+    //     } catch (error) {
+    //         return res.status(500).json({
+    //             status: 500,
+    //             success: false,
+    //             message: 'Error using booster pass',
+    //             error: error.message
+    //         });
+    //     }
+    // },
     
     // Award passes based on bounty results
     async awardPassesForBounty(bountyId) {
@@ -1261,10 +1261,10 @@ async useBoosterPass(req, res) {
       const legacyHunter = await Hunter.findById(hunterId);
       
       // Check available passes in both systems
-      const hasLegacyPass = legacyHunter && legacyHunter.passes.booster.count > 0;
+    //   const hasLegacyPass = legacyHunter && legacyHunter.passes.booster.count > 0;
       const hasNewPass = hunterPass && hunterPass.count > 0;
       
-      if (!hasLegacyPass && !hasNewPass) {
+      if (!hasNewPass) {
         return res.status(400).json({
           status: 400,
           success: false,
@@ -1303,13 +1303,13 @@ async useBoosterPass(req, res) {
         );
       }
       
-      if (hasLegacyPass) {
-        await Hunter.findByIdAndUpdate(
-          hunterId,
-          { $inc: { 'passes.booster.count': -1 } },
-          { session }
-        );
-      }
+    //   if (hasLegacyPass) {
+    //     await Hunter.findByIdAndUpdate(
+    //       hunterId,
+    //       { $inc: { 'passes.booster.count': -1 } },
+    //       { session }
+    //     );
+    //   }
       
       // Record the pass usage
       await PassUsage.create([{

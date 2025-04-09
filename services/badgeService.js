@@ -1,7 +1,7 @@
 const Hunter = require('../models/Hunter');
 const Badge = require("../models/Badge");
 const Title = require("../models/Title")
-const notificationService = require('../services/notificationService');
+const notificationController = require('../controllers/notificationController');
 /**
  * Check and award badges to a hunter based on their achievements
  * @param {ObjectId} hunterId - The ID of the hunter
