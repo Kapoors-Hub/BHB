@@ -241,7 +241,8 @@ async checkAcceptedBountyStatus(req, res) {
                 const hunterParticipation = bounty.participants.find(
                     p => p.hunter.toString() === hunterId
                 );
-    
+                // Get total number of participants
+const totalParticipants = bounty.participants.length;
                 // Default values
                 let hunterScore = null;
                 let hunterRank = null;
@@ -330,7 +331,8 @@ async checkAcceptedBountyStatus(req, res) {
                         score: hunterScore,
                         rank: hunterRank,
                         rewardWon: rewardWon,
-                        xpEarned: xpEarned
+                        xpEarned: xpEarned,
+                        totalParticipants: totalParticipants,
                     },
                     // Include submission status
                     submissionStatus: hunterParticipation && hunterParticipation.submission ? 
