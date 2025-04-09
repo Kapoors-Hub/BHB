@@ -82,6 +82,10 @@ const hunterSchema = new mongoose.Schema({
       type: Number,
       default: 0
     },
+    highestScore: {  // New field to track highest performance score
+      type: Number,
+      default: 0
+    },
     bountyScores: [{
       bounty: {
         type: mongoose.Schema.Types.ObjectId,
@@ -355,6 +359,16 @@ quizStats: {
     type: Date,
     default: Date.now
   }
+});
+
+// Update highest performance score whenever the performance score changes
+hunterSchema.pre('save', function (next) {
+  if (this.isModified('performance.score')) {
+    if (this.performance.score > this.performance.highestScore) {
+      this.performance.highestScore = this.performance.score;
+    }
+  }
+  next();
 });
 
 hunterSchema.methods.updateLevel = function () {
