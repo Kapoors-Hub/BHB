@@ -333,6 +333,7 @@ const totalParticipants = bounty.participants.length;
                         rewardWon: rewardWon,
                         xpEarned: xpEarned,
                         totalParticipants: totalParticipants,
+                        days: bounty.days, // Using the existing days field directly
                     },
                     // Include submission status
                     submissionStatus: hunterParticipation && hunterParticipation.submission ? 
