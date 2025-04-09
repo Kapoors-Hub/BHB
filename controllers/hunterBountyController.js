@@ -475,7 +475,9 @@ const totalParticipants = bounty.participants.length;
             const { bountyId } = req.params;
             const hunterId = req.hunter.id;
             
-            const bounty = await Bounty.findById(bountyId).populate('createdBy', 'username');
+            const bounty = await Bounty.findById(bountyId)
+                .populate('createdBy', 'username')
+                .populate('resultId');
             
             if (!bounty) {
                 return res.status(404).json({
@@ -513,16 +515,17 @@ const totalParticipants = bounty.participants.length;
                     message: 'Your submission has not been reviewed yet',
                     data: {
                         bountyTitle: bounty.title,
+                        rewardPrize: bounty.rewardPrize, // Added reward prize
                         reviewed: false
                     }
                 });
             }
-
-            const adherenceToBrief= participation.submission.review.adherenceToBrief
-            const    conceptualThinking= participation.submission.review.conceptualThinking
-            const   technicalExecution= participation.submission.review.technicalExecution
-            const    originalityCreativity= participation.submission.review.originalityCreativity
-            const    documentation= participation.submission.review.documentation
+    
+            const adherenceToBrief = participation.submission.review.adherenceToBrief;
+            const conceptualThinking = participation.submission.review.conceptualThinking;
+            const technicalExecution = participation.submission.review.technicalExecution;
+            const originalityCreativity = participation.submission.review.originalityCreativity;
+            const documentation = participation.submission.review.documentation;
             
             // Get review scores
             const scores = [
@@ -536,13 +539,50 @@ const totalParticipants = bounty.participants.length;
             // Calculate XP using XP service
             const xp = calculateReviewXP(scores);
             
-            // Return score details with XP information
+            // Determine if hunter won the bounty and earned the reward
+            let rewardWon = 0;
+            let rank = null;
+            
+            if (bounty.status === 'completed') {
+                // Check if we have the populated result
+                if (bounty.resultId && bounty.resultId.rankings) {
+                    const hunterRanking = bounty.resultId.rankings.find(
+                        r => r.hunter.toString() === hunterId
+                    );
+                    
+                    if (hunterRanking) {
+                        rank = hunterRanking.rank;
+                        if (rank === 1) {
+                            rewardWon = bounty.rewardPrize;
+                        }
+                    }
+                } else {
+                    // Try to fetch the result separately
+                    const bountyResult = await BountyResult.findOne({ bounty: bountyId });
+                    
+                    if (bountyResult && bountyResult.rankings) {
+                        const hunterRanking = bountyResult.rankings.find(
+                            r => r.hunter.toString() === hunterId
+                        );
+                        
+                        if (hunterRanking) {
+                            rank = hunterRanking.rank;
+                            if (rank === 1) {
+                                rewardWon = bounty.rewardPrize;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Return score details with XP information and reward prize
             return res.status(200).json({
                 status: 200,
                 success: true,
                 message: 'Score retrieved successfully',
                 data: {
                     bountyTitle: bounty.title,
+                    rewardPrize: bounty.rewardPrize, // Total prize for the bounty
                     reviewed: true,
                     reviewedAt: participation.submission.review.reviewedAt,
                     scores: {
@@ -554,7 +594,9 @@ const totalParticipants = bounty.participants.length;
                     },
                     totalScore: participation.submission.review.totalScore,
                     feedback: participation.submission.review.feedback,
-                    xpEarned: xp // Add the XP information to the response
+                    xpEarned: xp, // Add the XP information to the response
+                    rank: rank, // Add hunter's rank
+                    rewardWon: rewardWon // Add the reward won by the hunter (if any)
                 }
             });
         } catch (error) {
