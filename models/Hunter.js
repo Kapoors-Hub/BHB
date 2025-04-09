@@ -164,41 +164,42 @@ expiredTitles: [{
   }
 }],
   passes: {
-    timeExtension: {
-      count: {
-        type: Number,
-        default: 1  // One pass received every month
-      },
-      lastResetDate: {
-        type: Date,
-        default: Date.now
-      }
-    },
-    resetFoul: {
-      count: {
-        type: Number,
-        default: 0  // Earned on winning a bounty
-      }
-    },
-    booster: {
-      count: {
-        type: Number,
-        default: 0  // Earned on 2 consecutive wins
-      }
-    },
-    seasonal: {
-      count: {
-        type: Number,
-        default: 0  // Received by top performers at season end
-      },
-      lastAwarded: Date
-    },
-    // Track consecutive wins for booster pass
+    // timeExtension: {
+    //   count: {
+    //     type: Number,
+    //     default: 1 
+    //   },
+    //   lastResetDate: {
+    //     type: Date,
+    //     default: Date.now
+    //   }
+    // },
+    // resetFoul: {
+    //   count: {
+    //     type: Number,
+    //     default: 0 
+    //   }
+    // },
+    // booster: {
+    //   count: {
+    //     type: Number,
+    //     default: 0 
+    //   }
+    // },
+    // seasonal: {
+    //   count: {
+    //     type: Number,
+    //     default: 0  
+    //   },
+    //   lastAwarded: Date
+    // },
+   
     consecutiveWins: {
       type: Number,
       default: 0
     }
   },
+  
 
 quizStats: {
   totalQuizzes: {

@@ -1286,7 +1286,101 @@ async getWalletBalance(req, res) {
       error: error.message
     });
   }
+},
+/**
+ * Controller function for hunters to check their strike record
+ */
+async getMyStrikes(req, res) {
+  try {
+    const hunterId = req.hunter.id;
+    
+    // Get hunter with strike information
+    const hunter = await Hunter.findById(hunterId)
+      .select('strikes');
+    
+    if (!hunter) {
+      return res.status(404).json({
+        status: 404,
+        success: false,
+        message: 'Hunter not found'
+      });
+    }
+    
+    // Get foul records associated with strikes
+    const foulRecords = await FoulRecord.find({
+      hunter: hunterId,
+      isStrike: true
+    }).sort({ createdAt: -1 }); // Most recent first
+    
+    // Get the active foul records (not cleared)
+    const activeStrikes = foulRecords.filter(foul => !foul.isCleared);
+    
+    // Get the cleared foul records
+    const clearedStrikes = foulRecords.filter(foul => foul.isCleared);
+    
+    // Calculate remaining days if suspended
+    let remainingSuspensionDays = 0;
+    if (hunter.strikes.isCurrentlySuspended && hunter.strikes.suspensionEndDate) {
+      const today = new Date();
+      const endDate = new Date(hunter.strikes.suspensionEndDate);
+      
+      if (endDate > today) {
+        const diffTime = Math.abs(endDate - today);
+        remainingSuspensionDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+    }
+    
+    // Format the response
+    const strikeData = {
+      currentStrikeCount: hunter.strikes.count,
+      isCurrentlySuspended: hunter.strikes.isCurrentlySuspended,
+      suspensionEndDate: hunter.strikes.suspensionEndDate,
+      remainingSuspensionDays: hunter.strikes.isCurrentlySuspended ? remainingSuspensionDays : 0,
+      activeStrikes: activeStrikes.map(foul => ({
+        id: foul._id,
+        reason: foul.reason,
+        evidence: foul.evidence,
+        xpPenalty: foul.xpPenalty,
+        createdAt: foul.createdAt,
+        occurrenceNumber: foul.occurrenceNumber,
+        relatedBounty: foul.relatedBounty
+      })),
+      clearedStrikes: clearedStrikes.map(foul => ({
+        id: foul._id,
+        reason: foul.reason,
+        evidence: foul.evidence,
+        xpPenalty: foul.xpPenalty,
+        createdAt: foul.createdAt,
+        clearedAt: foul.clearedAt,
+        occurrenceNumber: foul.occurrenceNumber,
+        relatedBounty: foul.relatedBounty
+      })),
+      suspensionHistory: hunter.strikes.suspensionHistory.map(suspension => ({
+        startDate: suspension.startDate,
+        endDate: suspension.endDate,
+        reason: suspension.reason,
+        duration: Math.ceil((new Date(suspension.endDate) - new Date(suspension.startDate)) / (1000 * 60 * 60 * 24)) // Duration in days
+      }))
+    };
+    
+    return res.status(200).json({
+      status: 200,
+      success: true,
+      message: 'Strike information retrieved successfully',
+      data: strikeData
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: 500,
+      success: false,
+      message: 'Error retrieving strike information',
+      error: error.message
+    });
+  }
 }
+
+// Route in hunterRoutes.js
+
 
 
       

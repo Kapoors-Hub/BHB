@@ -91,6 +91,8 @@ router.get('/passes', validateHunterToken, passController.getHunterPasses);
 router.post('/passes/time-extension/:bountyId', validateHunterToken, passController.useTimeExtensionPass);
 router.post('/passes/booster/:bountyId', validateHunterToken, passController.useBoosterPass);
 
+router.get('/strikes', validateHunterToken, hunterController.getMyStrikes);
+
 module.exports = router;
 
 // 44fb4129-959e-41b0-93f2-faf4c8d0780b
