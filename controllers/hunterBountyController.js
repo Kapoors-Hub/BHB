@@ -246,6 +246,7 @@ async checkAcceptedBountyStatus(req, res) {
                 let hunterScore = null;
                 let hunterRank = null;
                 let rewardWon = 0;
+                let xpEarned = 0;
     
                 // If the bounty has a result and is completed
                 if (bounty.status === 'completed' && bounty.resultId) {
@@ -254,9 +255,22 @@ async checkAcceptedBountyStatus(req, res) {
                         hunterParticipation.submission && 
                         hunterParticipation.submission.review) {
                         hunterScore = hunterParticipation.submission.review.totalScore;
+                        
+                        // Get the review scores to calculate XP
+                        const scores = [
+                            hunterParticipation.submission.review.adherenceToBrief || 0,
+                            hunterParticipation.submission.review.conceptualThinking || 0,
+                            hunterParticipation.submission.review.technicalExecution || 0,
+                            hunterParticipation.submission.review.originalityCreativity || 0,
+                            hunterParticipation.submission.review.documentation || 0
+                        ];
+                        
+                        // Calculate XP earned from the review scores
+                        const xpService = require('../services/xpService');
+                        xpEarned = xpService.calculateReviewXP(scores);
                     }
     
-                    // Get the hunter's rank from the result if available
+                    // Get the hunter's rank and XP from the result if available
                     if (bounty.resultId && bounty.resultId.rankings) {
                         const hunterRanking = bounty.resultId.rankings.find(
                             r => r.hunter.toString() === hunterId
@@ -267,6 +281,11 @@ async checkAcceptedBountyStatus(req, res) {
                             // If hunter ranked 1st, they won the reward prize
                             if (hunterRank === 1) {
                                 rewardWon = bounty.rewardPrize;
+                            }
+                            
+                            // Get XP earned from the result if available
+                            if (hunterRanking.xpEarned) {
+                                xpEarned = hunterRanking.xpEarned;
                             }
                         }
                     } else {
@@ -283,6 +302,11 @@ async checkAcceptedBountyStatus(req, res) {
                                 // If hunter ranked 1st, they won the reward prize
                                 if (hunterRank === 1) {
                                     rewardWon = bounty.rewardPrize;
+                                }
+                                
+                                // Get XP earned from the result if available
+                                if (hunterRanking.xpEarned) {
+                                    xpEarned = hunterRanking.xpEarned;
                                 }
                             }
                         }
@@ -305,7 +329,8 @@ async checkAcceptedBountyStatus(req, res) {
                     hunterPerformance: {
                         score: hunterScore,
                         rank: hunterRank,
-                        rewardWon: rewardWon
+                        rewardWon: rewardWon,
+                        xpEarned: xpEarned
                     },
                     // Include submission status
                     submissionStatus: hunterParticipation && hunterParticipation.submission ? 
