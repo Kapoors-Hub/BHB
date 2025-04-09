@@ -1251,7 +1251,6 @@ async getAggregateScores(req, res) {
     });
   }
 },
-// In controllers/hunterController.js (or walletController.js if you prefer)
 
 // Get hunter's wallet balance
 async getWalletBalance(req, res) {
