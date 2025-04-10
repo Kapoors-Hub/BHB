@@ -4,6 +4,7 @@ const BountyResult = require('../models/BountyResult');
 const Hunter = require('../models/Hunter');
 const { calculateReviewXP } = require('../services/xpService');
 const notificationController = require('./notificationController');
+const mongoose = require('mongoose');
 const path = require('path');
 
 const hunterBountyController = {
@@ -259,142 +260,319 @@ async checkAcceptedBountyStatus(req, res) {
     },
 
     // Get my accepted bounties
-    async getMyBounties(req, res) {
-        try {
-            const hunterId = req.hunter.id;
+//     async getMyBounties(req, res) {
+//         try {
+//             const hunterId = req.hunter.id;
     
-            // Get participating bounties with creator info
-            const participatingBounties = await Bounty.find({
-                'participants.hunter': hunterId
-            }).populate('createdBy', 'username')
-              .populate('resultId');
+//             // Get participating bounties with creator info
+//             const participatingBounties = await Bounty.find({
+//                 'participants.hunter': hunterId
+//             }).populate('createdBy', 'username')
+//               .populate('resultId');
     
-            // Format the response with hunter-specific data
-            const formattedBounties = await Promise.all(participatingBounties.map(async (bounty) => {
-                // Find the hunter's submission among the participants
-                const hunterParticipation = bounty.participants.find(
-                    p => p.hunter.toString() === hunterId
-                );
-                // Get total number of participants
-const totalParticipants = bounty.participants.length;
-                // Default values
-                let hunterScore = null;
-                let hunterRank = null;
-                let rewardWon = 0;
-                let xpEarned = 0;
+//             // Format the response with hunter-specific data
+//             const formattedBounties = await Promise.all(participatingBounties.map(async (bounty) => {
+//                 // Find the hunter's submission among the participants
+//                 const hunterParticipation = bounty.participants.find(
+//                     p => p.hunter.toString() === hunterId
+//                 );
+//                 // Get total number of participants
+// const totalParticipants = bounty.participants.length;
+//                 // Default values
+//                 let hunterScore = null;
+//                 let hunterRank = null;
+//                 let rewardWon = 0;
+//                 let xpEarned = 0;
     
-                // If the bounty has a result and is completed
-                if (bounty.status === 'completed' && bounty.resultId) {
-                    // If the hunter has a submission and it was reviewed
-                    if (hunterParticipation && 
-                        hunterParticipation.submission && 
-                        hunterParticipation.submission.review) {
-                        hunterScore = hunterParticipation.submission.review.totalScore;
+//                 // If the bounty has a result and is completed
+//                 if (bounty.status === 'completed' && bounty.resultId) {
+//                     // If the hunter has a submission and it was reviewed
+//                     if (hunterParticipation && 
+//                         hunterParticipation.submission && 
+//                         hunterParticipation.submission.review) {
+//                         hunterScore = hunterParticipation.submission.review.totalScore;
                         
-                        // Get the review scores to calculate XP
-                        const scores = [
-                            hunterParticipation.submission.review.adherenceToBrief || 0,
-                            hunterParticipation.submission.review.conceptualThinking || 0,
-                            hunterParticipation.submission.review.technicalExecution || 0,
-                            hunterParticipation.submission.review.originalityCreativity || 0,
-                            hunterParticipation.submission.review.documentation || 0
-                        ];
+//                         // Get the review scores to calculate XP
+//                         const scores = [
+//                             hunterParticipation.submission.review.adherenceToBrief || 0,
+//                             hunterParticipation.submission.review.conceptualThinking || 0,
+//                             hunterParticipation.submission.review.technicalExecution || 0,
+//                             hunterParticipation.submission.review.originalityCreativity || 0,
+//                             hunterParticipation.submission.review.documentation || 0
+//                         ];
                         
-                        // Calculate XP earned from the review scores
-                        const xpService = require('../services/xpService');
-                        xpEarned = xpService.calculateReviewXP(scores);
-                    }
+//                         // Calculate XP earned from the review scores
+//                         const xpService = require('../services/xpService');
+//                         xpEarned = xpService.calculateReviewXP(scores);
+//                     }
     
-                    // Get the hunter's rank and XP from the result if available
-                    if (bounty.resultId && bounty.resultId.rankings) {
-                        const hunterRanking = bounty.resultId.rankings.find(
-                            r => r.hunter.toString() === hunterId
-                        );
+//                     // Get the hunter's rank and XP from the result if available
+//                     if (bounty.resultId && bounty.resultId.rankings) {
+//                         const hunterRanking = bounty.resultId.rankings.find(
+//                             r => r.hunter.toString() === hunterId
+//                         );
                         
-                        if (hunterRanking) {
-                            hunterRank = hunterRanking.rank;
-                            // If hunter ranked 1st, they won the reward prize
-                            if (hunterRank === 1) {
-                                rewardWon = bounty.rewardPrize;
-                            }
+//                         if (hunterRanking) {
+//                             hunterRank = hunterRanking.rank;
+//                             // If hunter ranked 1st, they won the reward prize
+//                             if (hunterRank === 1) {
+//                                 rewardWon = bounty.rewardPrize;
+//                             }
                             
-                            // Get XP earned from the result if available
-                            if (hunterRanking.xpEarned) {
-                                xpEarned = hunterRanking.xpEarned;
-                            }
-                        }
-                    } else {
-                        // If we don't have the populated result, fetch it separately
-                        const bountyResult = await BountyResult.findOne({ bounty: bounty._id });
+//                             // Get XP earned from the result if available
+//                             if (hunterRanking.xpEarned) {
+//                                 xpEarned = hunterRanking.xpEarned;
+//                             }
+//                         }
+//                     } else {
+//                         // If we don't have the populated result, fetch it separately
+//                         const bountyResult = await BountyResult.findOne({ bounty: bounty._id });
                         
-                        if (bountyResult && bountyResult.rankings) {
-                            const hunterRanking = bountyResult.rankings.find(
-                                r => r.hunter.toString() === hunterId
-                            );
+//                         if (bountyResult && bountyResult.rankings) {
+//                             const hunterRanking = bountyResult.rankings.find(
+//                                 r => r.hunter.toString() === hunterId
+//                             );
                             
-                            if (hunterRanking) {
-                                hunterRank = hunterRanking.rank;
-                                // If hunter ranked 1st, they won the reward prize
-                                if (hunterRank === 1) {
-                                    rewardWon = bounty.rewardPrize;
-                                }
+//                             if (hunterRanking) {
+//                                 hunterRank = hunterRanking.rank;
+//                                 // If hunter ranked 1st, they won the reward prize
+//                                 if (hunterRank === 1) {
+//                                     rewardWon = bounty.rewardPrize;
+//                                 }
                                 
-                                // Get XP earned from the result if available
-                                if (hunterRanking.xpEarned) {
-                                    xpEarned = hunterRanking.xpEarned;
-                                }
-                            }
-                        }
-                    }
-                }
+//                                 // Get XP earned from the result if available
+//                                 if (hunterRanking.xpEarned) {
+//                                     xpEarned = hunterRanking.xpEarned;
+//                                 }
+//                             }
+//                         }
+//                     }
+//                 }
     
-                // Return the formatted bounty with hunter-specific data
-                return {
-                    _id: bounty._id,
-                    title: bounty.title,
-                    description: bounty.description,
-                    status: bounty.status,
-                    startTime: bounty.startTime,
-                    endTime: bounty.endTime,
-                    resultTime: bounty.resultTime,
-                    rewardPrize: bounty.rewardPrize,
-                    createdBy: bounty.createdBy,
-                    createdAt: bounty.createdAt,
-                    // Hunter-specific data
-                    hunterPerformance: {
-                        score: hunterScore,
-                        rank: hunterRank,
-                        rewardWon: rewardWon,
-                        xpEarned: xpEarned,
-                        totalParticipants: totalParticipants,
-                        days: bounty.days, // Using the existing days field directly
-                    },
-                    // Include submission status
-                    submissionStatus: hunterParticipation && hunterParticipation.submission ? 
-                        hunterParticipation.submission.status : 'not_submitted',
-                    // If there's a review, include its status
-                    reviewStatus: hunterParticipation && 
-                        hunterParticipation.submission && 
-                        hunterParticipation.submission.review ? 
-                        hunterParticipation.submission.review.reviewStatus : null
-                };
-            }));
+//                 // Return the formatted bounty with hunter-specific data
+//                 return {
+//                     _id: bounty._id,
+//                     title: bounty.title,
+//                     description: bounty.description,
+//                     status: bounty.status,
+//                     startTime: bounty.startTime,
+//                     endTime: bounty.endTime,
+//                     resultTime: bounty.resultTime,
+//                     rewardPrize: bounty.rewardPrize,
+//                     createdBy: bounty.createdBy,
+//                     createdAt: bounty.createdAt,
+//                     // Hunter-specific data
+//                     hunterPerformance: {
+//                         score: hunterScore,
+//                         rank: hunterRank,
+//                         rewardWon: rewardWon,
+//                         xpEarned: xpEarned,
+//                         totalParticipants: totalParticipants,
+//                         days: bounty.days, // Using the existing days field directly
+//                     },
+//                     // Include submission status
+//                     submissionStatus: hunterParticipation && hunterParticipation.submission ? 
+//                         hunterParticipation.submission.status : 'not_submitted',
+//                     // If there's a review, include its status
+//                     reviewStatus: hunterParticipation && 
+//                         hunterParticipation.submission && 
+//                         hunterParticipation.submission.review ? 
+//                         hunterParticipation.submission.review.reviewStatus : null
+//                 };
+//             }));
     
-            return res.status(200).json({
-                status: 200,
-                success: true,
-                message: 'Your bounties fetched successfully',
-                data: formattedBounties
-            });
-        } catch (error) {
-            return res.status(500).json({
-                status: 500,
-                success: false,
-                message: 'Error fetching your bounties',
-                error: error.message
-            });
+//             return res.status(200).json({
+//                 status: 200,
+//                 success: true,
+//                 message: 'Your bounties fetched successfully',
+//                 data: formattedBounties
+//             });
+//         } catch (error) {
+//             return res.status(500).json({
+//                 status: 500,
+//                 success: false,
+//                 message: 'Error fetching your bounties',
+//                 error: error.message
+//             });
+//         }
+//     },
+
+async getMyBounties(req, res) {
+    try {
+      const hunterId = req.hunter.id;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+      
+      // Use aggregation pipeline for more efficient processing
+      const aggregationPipeline = [
+        // Match bounties where the hunter is a participant
+        { $match: { 
+          'participants.hunter': new mongoose.Types.ObjectId(hunterId) 
+        }},
+        
+        // Lookup bounty results in a single operation
+        { $lookup: {
+          from: 'bountyresults',
+          localField: '_id',
+          foreignField: 'bounty',
+          as: 'resultData'
+        }},
+        
+        // Lookup creator information
+        { $lookup: {
+          from: 'lords', // or your appropriate collection name
+          localField: 'createdBy',
+          foreignField: '_id',
+          as: 'creatorData'
+        }},
+        
+        // Unwind arrays to single objects (or null)
+        { $unwind: { 
+          path: '$resultData', 
+          preserveNullAndEmptyArrays: true 
+        }},
+        
+        { $unwind: { 
+          path: '$creatorData', 
+          preserveNullAndEmptyArrays: true 
+        }},
+        
+        // Create a field with hunter's specific participation data
+        { $addFields: {
+          hunterParticipation: {
+            $arrayElemAt: [
+              { $filter: {
+                input: '$participants',
+                as: 'participant',
+                cond: { $eq: [{ $toString: '$$participant.hunter' }, hunterId] }
+              }},
+              0
+            ]
+          },
+          
+          hunterRanking: {
+            $arrayElemAt: [
+              { $filter: {
+                input: { $ifNull: ['$resultData.rankings', []] },
+                as: 'ranking',
+                cond: { $eq: [{ $toString: '$$ranking.hunter' }, hunterId] }
+              }},
+              0
+            ]
+          },
+          
+          totalParticipants: { $size: '$participants' },
+          
+          // Add a sortOrder field to order by status (active first, then others)
+          statusSortOrder: {
+            $switch: {
+              branches: [
+                { case: { $eq: ['$status', 'active'] }, then: 1 },
+                { case: { $eq: ['$status', 'yts'] }, then: 2 },
+                { case: { $eq: ['$status', 'closed'] }, then: 3 },
+                { case: { $eq: ['$status', 'completed'] }, then: 4 }
+              ],
+              default: 5
+            }
+          }
+        }},
+        
+        // Project only the needed fields
+        { $project: {
+          _id: 1,
+          title: 1,
+          description: 1,
+          status: 1,
+          startTime: 1,
+          endTime: 1,
+          resultTime: 1,
+          rewardPrize: 1,
+          days: 1,
+          createdAt: 1,
+          statusSortOrder: 1,  // Keep for sorting
+          createdBy: {
+            _id: '$creatorData._id',
+            username: '$creatorData.username'
+          },
+          totalParticipants: 1,
+          
+          // Hunter performance data
+          hunterPerformance: {
+            score: { $ifNull: ['$hunterParticipation.submission.review.totalScore', null] },
+            rank: { $ifNull: ['$hunterRanking.rank', null] },
+            rewardWon: {
+              $cond: {
+                if: { $eq: [{ $ifNull: ['$hunterRanking.rank', null] }, 1] },
+                then: '$rewardPrize',
+                else: 0
+              }
+            },
+            xpEarned: { $ifNull: ['$hunterRanking.xpEarned', 0] },
+            totalParticipants: '$totalParticipants',
+            days: '$days'
+          },
+          
+          // Add submission and review status
+          submissionStatus: { $ifNull: ['$hunterParticipation.submission.status', 'not_submitted'] },
+          reviewStatus: { $ifNull: ['$hunterParticipation.submission.review.reviewStatus', null] }
+        }},
+        
+        // Sort first by status order (active first), then by creation date
+        { $sort: { 
+          statusSortOrder: 1,  // 1=active, 2=yts, 3=closed, 4=completed
+          createdAt: -1        // Most recent first within each status group
+        }},
+        
+        // Apply pagination
+        { $skip: skip },
+        { $limit: limit }
+      ];
+      
+      // Execute the pipeline and get the total count in parallel
+      const [bounties, totalCountResult] = await Promise.all([
+        Bounty.aggregate(aggregationPipeline),
+        Bounty.aggregate([
+          { $match: { 'participants.hunter': new mongoose.Types.ObjectId(hunterId) } },
+          { $count: 'total' }
+        ])
+      ]);
+      
+      const totalCount = totalCountResult.length > 0 ? totalCountResult[0].total : 0;
+      const totalPages = Math.ceil(totalCount / limit);
+      
+      // Remove the statusSortOrder field from the final response
+      const formattedBounties = bounties.map(bounty => {
+        const { statusSortOrder, ...rest } = bounty;
+        return rest;
+      });
+      
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'Your bounties fetched successfully',
+        data: {
+          bounties: formattedBounties,
+          pagination: {
+            totalCount,
+            totalPages,
+            currentPage: page,
+            limit,
+            hasNextPage: page < totalPages,
+            hasPrevPage: page > 1
+          }
         }
-    },
+      });
+    } catch (error) {
+      console.error('Error in getMyBounties:', error);
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error fetching your bounties',
+        error: error.message
+      });
+    }
+  },
 
     // Submit Bounty
     // async submitBountyWork(req, res) {
