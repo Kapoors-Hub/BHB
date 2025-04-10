@@ -872,144 +872,337 @@ async getMyBounties(req, res) {
     },
 
     // Get Score
+    // async getMyScore(req, res) {
+    //     try {
+    //         const { bountyId } = req.params;
+    //         const hunterId = req.hunter.id;
+            
+    //         const bounty = await Bounty.findById(bountyId)
+    //             .populate('createdBy', 'username')
+    //             .populate('resultId');
+            
+    //         if (!bounty) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Bounty not found'
+    //             });
+    //         }
+            
+    //         // Find hunter's participation
+    //         const participation = bounty.participants.find(
+    //             p => p.hunter.toString() === hunterId
+    //         );
+            
+    //         if (!participation) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'You are not a participant in this bounty'
+    //             });
+    //         }
+            
+    //         if (!participation.submission || !participation.submission.submittedAt) {
+    //             return res.status(400).json({
+    //                 status: 400,
+    //                 success: false,
+    //                 message: 'You have not submitted any work for this bounty'
+    //             });
+    //         }
+            
+    //         if (!participation.submission.review || !participation.submission.review.reviewedAt) {
+    //             return res.status(200).json({
+    //                 status: 200,
+    //                 success: true,
+    //                 message: 'Your submission has not been reviewed yet',
+    //                 data: {
+    //                     bountyTitle: bounty.title,
+    //                     rewardPrize: bounty.rewardPrize, // Added reward prize
+    //                     reviewed: false
+    //                 }
+    //             });
+    //         }
+    
+    //         const adherenceToBrief = participation.submission.review.adherenceToBrief;
+    //         const conceptualThinking = participation.submission.review.conceptualThinking;
+    //         const technicalExecution = participation.submission.review.technicalExecution;
+    //         const originalityCreativity = participation.submission.review.originalityCreativity;
+    //         const documentation = participation.submission.review.documentation;
+            
+    //         // Get review scores
+    //         const scores = [
+    //             adherenceToBrief,
+    //             conceptualThinking,
+    //             technicalExecution,
+    //             originalityCreativity,
+    //             documentation
+    //         ];
+            
+    //         // Calculate XP using XP service
+    //         const xp = calculateReviewXP(scores);
+            
+    //         // Determine if hunter won the bounty and earned the reward
+    //         let rewardWon = 0;
+    //         let rank = null;
+            
+    //         if (bounty.status === 'completed') {
+    //             // Check if we have the populated result
+    //             if (bounty.resultId && bounty.resultId.rankings) {
+    //                 const hunterRanking = bounty.resultId.rankings.find(
+    //                     r => r.hunter.toString() === hunterId
+    //                 );
+                    
+    //                 if (hunterRanking) {
+    //                     rank = hunterRanking.rank;
+    //                     if (rank === 1) {
+    //                         rewardWon = bounty.rewardPrize;
+    //                     }
+    //                 }
+    //             } else {
+    //                 // Try to fetch the result separately
+    //                 const bountyResult = await BountyResult.findOne({ bounty: bountyId });
+                    
+    //                 if (bountyResult && bountyResult.rankings) {
+    //                     const hunterRanking = bountyResult.rankings.find(
+    //                         r => r.hunter.toString() === hunterId
+    //                     );
+                        
+    //                     if (hunterRanking) {
+    //                         rank = hunterRanking.rank;
+    //                         if (rank === 1) {
+    //                             rewardWon = bounty.rewardPrize;
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+            
+    //         // Return score details with XP information and reward prize
+    //         return res.status(200).json({
+    //             status: 200,
+    //             success: true,
+    //             message: 'Score retrieved successfully',
+    //             data: {
+    //                 bountyTitle: bounty.title,
+    //                 rewardPrize: bounty.rewardPrize, // Total prize for the bounty
+    //                 reviewed: true,
+    //                 reviewedAt: participation.submission.review.reviewedAt,
+    //                 scores: {
+    //                     adherenceToBrief: participation.submission.review.adherenceToBrief,
+    //                     conceptualThinking: participation.submission.review.conceptualThinking,
+    //                     technicalExecution: participation.submission.review.technicalExecution,
+    //                     originalityCreativity: participation.submission.review.originalityCreativity,
+    //                     documentation: participation.submission.review.documentation
+    //                 },
+    //                 totalScore: participation.submission.review.totalScore,
+    //                 feedback: participation.submission.review.feedback,
+    //                 xpEarned: xp, // Add the XP information to the response
+    //                 rank: rank, // Add hunter's rank
+    //                 rewardWon: rewardWon // Add the reward won by the hunter (if any)
+    //             }
+    //         });
+    //     } catch (error) {
+    //         return res.status(500).json({
+    //             status: 500,
+    //             success: false,
+    //             message: 'Error retrieving score',
+    //             error: error.message
+    //         });
+    //     }
+    // },
+
     async getMyScore(req, res) {
         try {
-            const { bountyId } = req.params;
-            const hunterId = req.hunter.id;
+          const { bountyId } = req.params;
+          const hunterId = req.hunter.id;
+          
+          // Validate ObjectId format
+          if (!mongoose.Types.ObjectId.isValid(bountyId)) {
+            return res.status(400).json({
+              status: 400,
+              success: false,
+              message: 'Invalid bounty ID format'
+            });
+          }
+          
+          // Use aggregation to get exactly what we need in a single query
+          const bountyData = await Bounty.aggregate([
+            // Match the specific bounty
+            { $match: { _id: new mongoose.Types.ObjectId(bountyId) } },
             
-            const bounty = await Bounty.findById(bountyId)
-                .populate('createdBy', 'username')
-                .populate('resultId');
+            // Only include necessary fields
+            { $project: {
+              title: 1,
+              rewardPrize: 1,
+              status: 1,
+              participants: 1
+            }},
             
-            if (!bounty) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Bounty not found'
-                });
+            // Lookup bounty results in a single operation if needed
+            { $lookup: {
+              from: 'bountyresults',
+              localField: '_id',
+              foreignField: 'bounty',
+              as: 'resultData'
+            }},
+            
+            // Unwind to a single document (or empty if not found)
+            { $limit: 1 }
+          ]);
+          
+          // Check if bounty exists
+          if (!bountyData.length) {
+            return res.status(404).json({
+              status: 404,
+              success: false,
+              message: 'Bounty not found'
+            });
+          }
+          
+          const bounty = bountyData[0];
+          
+          // Find hunter's participation
+          const participation = bounty.participants.find(
+            p => p.hunter.toString() === hunterId
+          );
+          
+          // Check if hunter is a participant
+          if (!participation) {
+            return res.status(404).json({
+              status: 404,
+              success: false,
+              message: 'You are not a participant in this bounty'
+            });
+          }
+          
+          // Check for submission
+          if (!participation.submission || !participation.submission.submittedAt) {
+            return res.status(400).json({
+              status: 400,
+              success: false,
+              message: 'You have not submitted any work for this bounty'
+            });
+          }
+          
+          // Check for review
+          if (!participation.submission.review || !participation.submission.review.reviewedAt) {
+            return res.status(200).json({
+              status: 200,
+              success: true,
+              message: 'Your submission has not been reviewed yet',
+              data: {
+                bountyTitle: bounty.title,
+                rewardPrize: bounty.rewardPrize,
+                reviewed: false
+              }
+            });
+          }
+          
+          // Extract review scores
+          const { 
+            adherenceToBrief, 
+            conceptualThinking, 
+            technicalExecution, 
+            originalityCreativity, 
+            documentation,
+            totalScore,
+            feedback,
+            reviewedAt
+          } = participation.submission.review;
+          
+          // Calculate XP
+          const scores = [
+            adherenceToBrief,
+            conceptualThinking,
+            technicalExecution,
+            originalityCreativity,
+            documentation
+          ];
+          
+          const xp = calculateReviewXP(scores);
+          
+          // Determine rank and reward
+          let rewardWon = 0;
+          let rank = null;
+          let rank1Scores = null;
+          
+          if (bounty.status === 'completed' && bounty.resultData && bounty.resultData.length > 0) {
+            const result = bounty.resultData[0];
+            
+            if (result.rankings && result.rankings.length > 0) {
+              // Find hunter's ranking
+              const hunterRanking = result.rankings.find(
+                r => r.hunter.toString() === hunterId
+              );
+              
+              if (hunterRanking) {
+                rank = hunterRanking.rank;
+                if (rank === 1) {
+                  rewardWon = bounty.rewardPrize;
+                }
+              }
+              
+              // Find rank 1 hunter's scores
+              const rank1Hunter = result.rankings.find(r => r.rank === 1);
+              
+              if (rank1Hunter && rank1Hunter.scores) {
+                rank1Scores = rank1Hunter.scores;
+              } else {
+                // If scores not in result, find from participants
+                const sortedParticipants = bounty.participants
+                  .filter(p => p.submission && p.submission.review && p.submission.review.totalScore)
+                  .sort((a, b) => b.submission.review.totalScore - a.submission.review.totalScore);
+                
+                if (sortedParticipants.length > 0) {
+                  const topParticipant = sortedParticipants[0];
+                  rank1Scores = {
+                    adherenceToBrief: topParticipant.submission.review.adherenceToBrief,
+                    conceptualThinking: topParticipant.submission.review.conceptualThinking,
+                    technicalExecution: topParticipant.submission.review.technicalExecution,
+                    originalityCreativity: topParticipant.submission.review.originalityCreativity,
+                    documentation: topParticipant.submission.review.documentation,
+                    totalScore: topParticipant.submission.review.totalScore
+                  };
+                }
+              }
             }
-            
-            // Find hunter's participation
-            const participation = bounty.participants.find(
-                p => p.hunter.toString() === hunterId
-            );
-            
-            if (!participation) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'You are not a participant in this bounty'
-                });
-            }
-            
-            if (!participation.submission || !participation.submission.submittedAt) {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: 'You have not submitted any work for this bounty'
-                });
-            }
-            
-            if (!participation.submission.review || !participation.submission.review.reviewedAt) {
-                return res.status(200).json({
-                    status: 200,
-                    success: true,
-                    message: 'Your submission has not been reviewed yet',
-                    data: {
-                        bountyTitle: bounty.title,
-                        rewardPrize: bounty.rewardPrize, // Added reward prize
-                        reviewed: false
-                    }
-                });
-            }
-    
-            const adherenceToBrief = participation.submission.review.adherenceToBrief;
-            const conceptualThinking = participation.submission.review.conceptualThinking;
-            const technicalExecution = participation.submission.review.technicalExecution;
-            const originalityCreativity = participation.submission.review.originalityCreativity;
-            const documentation = participation.submission.review.documentation;
-            
-            // Get review scores
-            const scores = [
+          }
+          
+          // Return score details
+          return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Score retrieved successfully',
+            data: {
+              bountyTitle: bounty.title,
+              rewardPrize: bounty.rewardPrize,
+              reviewed: true,
+              reviewedAt: reviewedAt,
+              scores: {
                 adherenceToBrief,
                 conceptualThinking,
                 technicalExecution,
                 originalityCreativity,
                 documentation
-            ];
-            
-            // Calculate XP using XP service
-            const xp = calculateReviewXP(scores);
-            
-            // Determine if hunter won the bounty and earned the reward
-            let rewardWon = 0;
-            let rank = null;
-            
-            if (bounty.status === 'completed') {
-                // Check if we have the populated result
-                if (bounty.resultId && bounty.resultId.rankings) {
-                    const hunterRanking = bounty.resultId.rankings.find(
-                        r => r.hunter.toString() === hunterId
-                    );
-                    
-                    if (hunterRanking) {
-                        rank = hunterRanking.rank;
-                        if (rank === 1) {
-                            rewardWon = bounty.rewardPrize;
-                        }
-                    }
-                } else {
-                    // Try to fetch the result separately
-                    const bountyResult = await BountyResult.findOne({ bounty: bountyId });
-                    
-                    if (bountyResult && bountyResult.rankings) {
-                        const hunterRanking = bountyResult.rankings.find(
-                            r => r.hunter.toString() === hunterId
-                        );
-                        
-                        if (hunterRanking) {
-                            rank = hunterRanking.rank;
-                            if (rank === 1) {
-                                rewardWon = bounty.rewardPrize;
-                            }
-                        }
-                    }
-                }
+              },
+              totalScore,
+              feedback,
+              xpEarned: xp,
+              rank,
+              rewardWon,
+              rank1Scores // Added the rank1Scores to the response
             }
-            
-            // Return score details with XP information and reward prize
-            return res.status(200).json({
-                status: 200,
-                success: true,
-                message: 'Score retrieved successfully',
-                data: {
-                    bountyTitle: bounty.title,
-                    rewardPrize: bounty.rewardPrize, // Total prize for the bounty
-                    reviewed: true,
-                    reviewedAt: participation.submission.review.reviewedAt,
-                    scores: {
-                        adherenceToBrief: participation.submission.review.adherenceToBrief,
-                        conceptualThinking: participation.submission.review.conceptualThinking,
-                        technicalExecution: participation.submission.review.technicalExecution,
-                        originalityCreativity: participation.submission.review.originalityCreativity,
-                        documentation: participation.submission.review.documentation
-                    },
-                    totalScore: participation.submission.review.totalScore,
-                    feedback: participation.submission.review.feedback,
-                    xpEarned: xp, // Add the XP information to the response
-                    rank: rank, // Add hunter's rank
-                    rewardWon: rewardWon // Add the reward won by the hunter (if any)
-                }
-            });
+          });
         } catch (error) {
-            return res.status(500).json({
-                status: 500,
-                success: false,
-                message: 'Error retrieving score',
-                error: error.message
-            });
+          console.error('Error in getMyScore:', error);
+          return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error retrieving score',
+            error: error.message
+          });
         }
-    },
+      },
 
     // Get hunter rankings for a bounty
     async getBountyRankings(req, res) {
