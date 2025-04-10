@@ -8,29 +8,6 @@ const path = require('path');
 
 const hunterBountyController = {
     // Get all available bounties
-    // async getAvailableBounties(req, res) {
-    //     try {
-    //         const currentDate = new Date();
-
-    //         // Remove filters temporarily to see all bounties
-    //         const bounties = await Bounty.find({})
-    //             .populate('createdBy', 'username');
-
-    //         return res.status(200).json({
-    //             status: 200,
-    //             success: true,
-    //             message: 'Available bounties fetched successfully',
-    //             data: bounties
-    //         });
-    //     } catch (error) {
-    //         return res.status(500).json({
-    //             status: 500,
-    //             success: false,
-    //             message: 'Error fetching bounties',
-    //             error: error.message
-    //         });
-    //     }
-    // },
 
     async getAvailableBounties(req, res) {
         try {
