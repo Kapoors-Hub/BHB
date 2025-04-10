@@ -8,146 +8,146 @@ const notificationController = require('./notificationController');
 const passController = {
     
     // Get hunter's passes
-    async getHunterPasses(req, res) {
-        try {
-            const hunterId = req.hunter.id;
+    // async getHunterPasses(req, res) {
+    //     try {
+    //         const hunterId = req.hunter.id;
             
-            const hunter = await Hunter.findById(hunterId);
-            if (!hunter) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Hunter not found'
-                });
-            }
+    //         const hunter = await Hunter.findById(hunterId);
+    //         if (!hunter) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Hunter not found'
+    //             });
+    //         }
             
-            // Get pass usage history
-            const passHistory = await Pass.find({ hunter: hunterId })
-                .populate('relatedBounty', 'title')
-                .populate('relatedFoul', 'name')
-                .sort({ usedAt: -1 });
+    //         // Get pass usage history
+    //         const passHistory = await Pass.find({ hunter: hunterId })
+    //             .populate('relatedBounty', 'title')
+    //             .populate('relatedFoul', 'name')
+    //             .sort({ usedAt: -1 });
                 
-            return res.status(200).json({
-                status: 200,
-                success: true,
-                message: 'Passes retrieved successfully',
-                data: {
-                    availablePasses: {
-                        timeExtension: hunter.passes.timeExtension.count,
-                        resetFoul: hunter.passes.resetFoul.count,
-                        booster: hunter.passes.booster.count,
-                        seasonal: hunter.passes.seasonal.count
-                    },
-                    consecutiveWins: hunter.passes.consecutiveWins,
-                    passHistory
-                }
-            });
-        } catch (error) {
-            return res.status(500).json({
-                status: 500,
-                success: false,
-                message: 'Error retrieving passes',
-                error: error.message
-            });
-        }
-    },
+    //         return res.status(200).json({
+    //             status: 200,
+    //             success: true,
+    //             message: 'Passes retrieved successfully',
+    //             data: {
+    //                 availablePasses: {
+    //                     timeExtension: hunter.passes.timeExtension.count,
+    //                     resetFoul: hunter.passes.resetFoul.count,
+    //                     booster: hunter.passes.booster.count,
+    //                     seasonal: hunter.passes.seasonal.count
+    //                 },
+    //                 consecutiveWins: hunter.passes.consecutiveWins,
+    //                 passHistory
+    //             }
+    //         });
+    //     } catch (error) {
+    //         return res.status(500).json({
+    //             status: 500,
+    //             success: false,
+    //             message: 'Error retrieving passes',
+    //             error: error.message
+    //         });
+    //     }
+    // },
     
     // Use time extension pass
-    async useTimeExtensionPass(req, res) {
-        try {
-            const { bountyId } = req.params;
-            const hunterId = req.hunter.id;
+    // async useTimeExtensionPass(req, res) {
+    //     try {
+    //         const { bountyId } = req.params;
+    //         const hunterId = req.hunter.id;
             
-            const hunter = await Hunter.findById(hunterId);
-            if (!hunter) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Hunter not found'
-                });
-            }
+    //         const hunter = await Hunter.findById(hunterId);
+    //         if (!hunter) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Hunter not found'
+    //             });
+    //         }
             
-            // Check if hunter has a time extension pass
-            if (hunter.passes.timeExtension.count <= 0) {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: 'No time extension passes available'
-                });
-            }
+    //         // Check if hunter has a time extension pass
+    //         if (hunter.passes.timeExtension.count <= 0) {
+    //             return res.status(400).json({
+    //                 status: 400,
+    //                 success: false,
+    //                 message: 'No time extension passes available'
+    //             });
+    //         }
             
-            // Check if hunter is participating in the bounty
-            const bounty = await Bounty.findOne({
-                _id: bountyId,
-                'participants.hunter': hunterId
-            });
+    //         // Check if hunter is participating in the bounty
+    //         const bounty = await Bounty.findOne({
+    //             _id: bountyId,
+    //             'participants.hunter': hunterId
+    //         });
             
-            if (!bounty) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Bounty not found or you are not a participant'
-                });
-            }
+    //         if (!bounty) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Bounty not found or you are not a participant'
+    //             });
+    //         }
             
-            // Check if bounty is active
-            if (bounty.status !== 'active') {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: 'Time extension can only be used for active bounties'
-                });
-            }
+    //         // Check if bounty is active
+    //         if (bounty.status !== 'active') {
+    //             return res.status(400).json({
+    //                 status: 400,
+    //                 success: false,
+    //                 message: 'Time extension can only be used for active bounties'
+    //             });
+    //         }
             
-            // Use the pass
-            await Hunter.findByIdAndUpdate(hunterId, {
-                $inc: { 'passes.timeExtension.count': -1 }
-            });
+    //         // Use the pass
+    //         await Hunter.findByIdAndUpdate(hunterId, {
+    //             $inc: { 'passes.timeExtension.count': -1 }
+    //         });
             
-            // Create pass usage record
-            const effectUntil = new Date(bounty.endTime);
-            effectUntil.setHours(effectUntil.getHours() + 24); // 24-hour extension
+    //         // Create pass usage record
+    //         const effectUntil = new Date(bounty.endTime);
+    //         effectUntil.setHours(effectUntil.getHours() + 24); // 24-hour extension
             
-            const passRecord = await Pass.create({
-                hunter: hunterId,
-                passType: 'timeExtension',
-                relatedBounty: bountyId,
-                status: 'active',
-                effectUntil
-            });
+    //         const passRecord = await Pass.create({
+    //             hunter: hunterId,
+    //             passType: 'timeExtension',
+    //             relatedBounty: bountyId,
+    //             status: 'active',
+    //             effectUntil
+    //         });
             
-            // Update bounty for this hunter to extend deadline
-            await Bounty.findOneAndUpdate(
-                { 
-                    _id: bountyId,
-                    'participants.hunter': hunterId
-                },
-                {
-                    $set: {
-                        'participants.$.extendedEndTime': effectUntil
-                    }
-                }
-            );
+    //         // Update bounty for this hunter to extend deadline
+    //         await Bounty.findOneAndUpdate(
+    //             { 
+    //                 _id: bountyId,
+    //                 'participants.hunter': hunterId
+    //             },
+    //             {
+    //                 $set: {
+    //                     'participants.$.extendedEndTime': effectUntil
+    //                 }
+    //             }
+    //         );
             
-            return res.status(200).json({
-                status: 200,
-                success: true,
-                message: 'Time extension pass used successfully',
-                data: {
-                    bountyTitle: bounty.title,
-                    extendedUntil: effectUntil,
-                    remainingPasses: hunter.passes.timeExtension.count - 1
-                }
-            });
-        } catch (error) {
-            return res.status(500).json({
-                status: 500,
-                success: false,
-                message: 'Error using time extension pass',
-                error: error.message
-            });
-        }
-    },
+    //         return res.status(200).json({
+    //             status: 200,
+    //             success: true,
+    //             message: 'Time extension pass used successfully',
+    //             data: {
+    //                 bountyTitle: bounty.title,
+    //                 extendedUntil: effectUntil,
+    //                 remainingPasses: hunter.passes.timeExtension.count - 1
+    //             }
+    //         });
+    //     } catch (error) {
+    //         return res.status(500).json({
+    //             status: 500,
+    //             success: false,
+    //             message: 'Error using time extension pass',
+    //             error: error.message
+    //         });
+    //     }
+    // },
     
     // Use reset foul pass
     // async useResetFoulPass(req, res) {
