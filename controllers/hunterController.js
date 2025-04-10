@@ -245,6 +245,7 @@ const hunterController = {
           personalInfo: {
             id: hunter._id,
             name: hunter.name,
+            guild: hunter.guild,
             username: hunter.username,
             createdAt: hunter.createdAt
           },
