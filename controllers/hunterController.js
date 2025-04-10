@@ -244,8 +244,9 @@ const hunterController = {
         const profileData = {
           personalInfo: {
             id: hunter._id,
-            guild: hunter.guild,
-          
+            name: hunter.name,
+            username: hunter.username,
+            createdAt: hunter.createdAt
           },
           progression: {
             xp: hunter.xp,
@@ -273,7 +274,7 @@ const hunterController = {
               id: title.title?._id || title.title,
               name: title.title?.name || 'Unknown Title',
               description: title.title?.description,
-           
+    
             })),
             bountiesWon: hunter.achievements.bountiesWon.count,
             firstSubmissions: hunter.achievements.firstSubmissions.count,
@@ -284,7 +285,7 @@ const hunterController = {
             totalBounties: bountyCountByStatus.total,
             completedBounties: bountyCountByStatus.completed,
             completionRate: completionRate,
-           
+
           },
           quizStats: {
             totalQuizzes: hunter.quizStats?.totalQuizzes || 0,
