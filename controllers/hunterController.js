@@ -1372,7 +1372,7 @@ Bounty Hunter Platform Team`
         data: {
           totalFouls: foulRecords.length,
           totalXpPenalty,
-          severityCounts,
+      
           strikes: {
             count: hunter.strikes.count || 0,
             isCurrentlySuspended: hunter.strikes.isCurrentlySuspended || false,
