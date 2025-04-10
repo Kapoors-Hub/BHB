@@ -8,21 +8,192 @@ const Notification = require('../models/Notification');
 const notificationController = require('./notificationController');
 const FoulRecord = require('../models/FoulRecord');
 const Bounty = require('../models/Bounty');
+const mongoose = require('mongoose');
+const { calculateNextLevelThreshold } = require('../utils/passHelper');
 
 const hunterController = {
    
     // Get hunter profile
+    // async getHunterProfile(req, res) {
+    //   try {
+    //     const hunterId = req.hunter.id;
+        
+    //     // Fetch hunter with related data
+    //     const hunter = await Hunter.findById(hunterId)
+    //       .populate('badges.badge')
+    //       .populate('titles.title')
+    //       .populate('titles.awardedBy', 'username')
+    //       .populate('acceptedBounties', 'title description status startTime endTime')
+    //       .select('-resetPasswordOtp -otp -password');
+        
+    //     if (!hunter) {
+    //       return res.status(404).json({
+    //         status: 404,
+    //         success: false,
+    //         message: 'Hunter not found'
+    //       });
+    //     }
+        
+    //     // Get count of unread notifications
+    //     const unreadNotifications = await Notification.countDocuments({
+    //       hunter: hunterId,
+    //       isRead: false
+    //     });
+        
+    //     // Get active bounties count
+    //     const activeBounties = hunter.acceptedBounties.filter(
+    //       bounty => bounty.status === 'active'
+    //     ).length;
+        
+    //     // Format active titles
+    //     const now = new Date();
+    //     const activeTitles = hunter.titles.filter(title => title.validUntil > now);
+        
+    //     // Calculate XP needed for next level
+    //     let nextThreshold;
+    //     const xp = hunter.xp;
+        
+    //     if (xp < 18000) {  // Bronze tier
+    //       if (hunter.level.rank === 'Novice') nextThreshold = 6000;
+    //       else if (hunter.level.rank === 'Specialist') nextThreshold = 12000;
+    //       else nextThreshold = 18000;
+    //     } else if (xp < 42000) {  // Silver tier
+    //       if (hunter.level.rank === 'Novice') nextThreshold = 26000;
+    //       else if (hunter.level.rank === 'Specialist') nextThreshold = 34000;
+    //       else nextThreshold = 42000;
+    //     } else {  // Gold tier
+    //       if (hunter.level.rank === 'Novice') nextThreshold = 52000;
+    //       else if (hunter.level.rank === 'Specialist') nextThreshold = 62000;
+    //       else nextThreshold = 72000;
+    //     }
+        
+    //     // Calculate completion rate
+    //     const completionRate = hunter.acceptedBounties.length > 0 
+    //       ? Math.round((hunter.performance.totalBountiesCalculated / hunter.acceptedBounties.length) * 100) 
+    //       : 0;
+        
+    //     // Format response data
+    //     const profileData = {
+    //       personalInfo: {
+    //         id: hunter._id,
+    //         name: hunter.name,
+    //         username: hunter.username,
+    //         collegeName: hunter.collegeName,
+    //         collegeEmail: hunter.collegeEmail,
+    //         personalEmail: hunter.personalEmail,
+    //         mobileNumber: hunter.mobileNumber,
+    //         discipline: hunter.discipline,
+    //         graduatingYear: hunter.graduatingYear,
+    //         dateOfBirth: hunter.dateOfBirth,
+    //         location: {
+    //           city: hunter.city,
+    //           state: hunter.state,
+    //           postalZipCode: hunter.postalZipCode,
+    //           placeOfResidence: hunter.placeOfResidence
+    //         },
+    //         guild: hunter.guild,
+    //         status: hunter.status,
+    //         isVerified: hunter.isVerified,
+    //         adminRemarks: hunter.adminRemarks,
+    //         createdAt: hunter.createdAt
+    //       },
+    //       progression: {
+    //         xp: hunter.xp,
+    //         level: {
+    //           tier: hunter.level.tier,
+    //           rank: hunter.level.rank
+    //         },
+    //         nextLevelAt: nextThreshold,
+    //         xpNeeded: nextThreshold - hunter.xp,
+    //         performance: {
+    //           score: hunter.performance.score,
+    //           highestScore: hunter.performance.highestScore,
+    //           totalBountiesCalculated: hunter.performance.totalBountiesCalculated,
+    //           completionRate: completionRate
+    //         }
+    //       },
+    //       achievements: {
+    //         badges: hunter.badges.map(badge => ({
+    //           id: badge.badge?._id || badge.badge,
+    //           name: badge.badge?.name || 'Unknown Badge',
+    //           description: badge.badge?.description,
+    //           earnedAt: badge.earnedAt
+    //         })),
+    //         activeTitles: activeTitles.map(title => ({
+    //           id: title.title?._id || title.title,
+    //           name: title.title?.name || 'Unknown Title',
+    //           description: title.title?.description,
+    //           awardedAt: title.awardedAt,
+    //           validUntil: title.validUntil,
+    //           awardedBy: title.awardedBy?.username || 'System'
+    //         })),
+    //         bountiesWon: hunter.achievements.bountiesWon.count,
+    //         firstSubmissions: hunter.achievements.firstSubmissions.count,
+    //         nonProfitBounties: hunter.achievements.nonProfitBounties.count
+    //       },
+    //       // passes: {
+    //       //   timeExtension: hunter.passes.timeExtension.count,
+    //       //   resetFoul: hunter.passes.resetFoul.count,
+    //       //   booster: hunter.passes.booster.count,
+    //       //   seasonal: hunter.passes.seasonal.count,
+    //       //   consecutiveWins: hunter.passes.consecutiveWins
+    //       // },
+    //       stats: {
+    //         activeBounties: activeBounties,
+    //         totalBounties: hunter.acceptedBounties.length,
+    //         completedBounties: hunter.performance.totalBountiesCalculated,
+    //         completionRate: completionRate,
+    //         unreadNotifications: unreadNotifications
+    //       },
+    //       quizStats: {
+    //         totalQuizzes: hunter.quizStats?.totalQuizzes || 0,
+    //         totalXpEarned: hunter.quizStats?.totalXpEarned || 0,
+    //         correctAnswers: hunter.quizStats?.correctAnswers || 0,
+    //         totalQuestions: hunter.quizStats?.totalQuestions || 0,
+    //         accuracy: hunter.quizStats?.totalQuestions ? 
+    //           Math.round((hunter.quizStats.correctAnswers / hunter.quizStats.totalQuestions) * 100) : 0
+    //       }
+    //     };
+        
+    //     return res.status(200).json({
+    //       status: 200,
+    //       success: true,
+    //       message: 'Profile retrieved successfully',
+    //       data: profileData
+    //     });
+    //   } catch (error) {
+    //     return res.status(500).json({
+    //       status: 500,
+    //       success: false,
+    //       message: 'Error retrieving profile',
+    //       error: error.message
+    //     });
+    //   }
+    // },
+
     async getHunterProfile(req, res) {
       try {
         const hunterId = req.hunter.id;
         
-        // Fetch hunter with related data
-        const hunter = await Hunter.findById(hunterId)
-          .populate('badges.badge')
-          .populate('titles.title')
-          .populate('titles.awardedBy', 'username')
-          .populate('acceptedBounties', 'title description status startTime endTime')
-          .select('-resetPasswordOtp -otp -password');
+        // Execute all queries in parallel using Promise.all
+        const [
+          hunter,
+          unreadNotifications
+        ] = await Promise.all([
+          // Only fetch necessary fields
+          Hunter.findById(hunterId)
+            .populate('badges.badge', 'name description')
+            .populate('titles.title', 'name description')
+            .populate('titles.awardedBy', 'username')
+            // Don't populate full bounties - just count them by status in a separate query
+            .select('-resetPasswordOtp -otp -password -acceptedBounties'),
+          
+          // Get count of unread notifications
+          Notification.countDocuments({
+            hunter: hunterId,
+            isRead: false
+          })
+        ]);
         
         if (!hunter) {
           return res.status(404).json({
@@ -32,68 +203,49 @@ const hunterController = {
           });
         }
         
-        // Get count of unread notifications
-        const unreadNotifications = await Notification.countDocuments({
-          hunter: hunterId,
-          isRead: false
+        // Get bounty counts by status using an aggregate query
+        const bountyStats = await Bounty.aggregate([
+          { $match: { 'participants.hunter': new mongoose.Types.ObjectId(hunterId) } },
+          { $group: {
+              _id: '$status',
+              count: { $sum: 1 }
+          }}
+        ]);
+        
+        // Parse the bounty stats results
+        const bountyCountByStatus = {
+          active: 0,
+          completed: 0,
+          total: 0
+        };
+        
+        bountyStats.forEach(stat => {
+          if (stat._id === 'active') {
+            bountyCountByStatus.active = stat.count;
+          } else if (stat._id === 'completed') {
+            bountyCountByStatus.completed = stat.count;
+          }
+          bountyCountByStatus.total += stat.count;
         });
         
-        // Get active bounties count
-        const activeBounties = hunter.acceptedBounties.filter(
-          bounty => bounty.status === 'active'
-        ).length;
+        // Calculate completion rate more efficiently
+        const completionRate = bountyCountByStatus.total > 0 
+          ? Math.round((bountyCountByStatus.completed / bountyCountByStatus.total) * 100) 
+          : 0;
         
-        // Format active titles
+        // Filter active titles
         const now = new Date();
         const activeTitles = hunter.titles.filter(title => title.validUntil > now);
         
-        // Calculate XP needed for next level
-        let nextThreshold;
-        const xp = hunter.xp;
-        
-        if (xp < 18000) {  // Bronze tier
-          if (hunter.level.rank === 'Novice') nextThreshold = 6000;
-          else if (hunter.level.rank === 'Specialist') nextThreshold = 12000;
-          else nextThreshold = 18000;
-        } else if (xp < 42000) {  // Silver tier
-          if (hunter.level.rank === 'Novice') nextThreshold = 26000;
-          else if (hunter.level.rank === 'Specialist') nextThreshold = 34000;
-          else nextThreshold = 42000;
-        } else {  // Gold tier
-          if (hunter.level.rank === 'Novice') nextThreshold = 52000;
-          else if (hunter.level.rank === 'Specialist') nextThreshold = 62000;
-          else nextThreshold = 72000;
-        }
-        
-        // Calculate completion rate
-        const completionRate = hunter.acceptedBounties.length > 0 
-          ? Math.round((hunter.performance.totalBountiesCalculated / hunter.acceptedBounties.length) * 100) 
-          : 0;
+        // Calculate XP needed for next level - convert to a utility function
+        const { nextThreshold, xpNeeded } = calculateNextLevelThreshold(hunter.xp, hunter.level);
         
         // Format response data
         const profileData = {
           personalInfo: {
             id: hunter._id,
-            name: hunter.name,
-            username: hunter.username,
-            collegeName: hunter.collegeName,
-            collegeEmail: hunter.collegeEmail,
-            personalEmail: hunter.personalEmail,
-            mobileNumber: hunter.mobileNumber,
-            discipline: hunter.discipline,
-            graduatingYear: hunter.graduatingYear,
-            dateOfBirth: hunter.dateOfBirth,
-            location: {
-              city: hunter.city,
-              state: hunter.state,
-              postalZipCode: hunter.postalZipCode,
-              placeOfResidence: hunter.placeOfResidence
-            },
             guild: hunter.guild,
-            status: hunter.status,
-            isVerified: hunter.isVerified,
-            adminRemarks: hunter.adminRemarks,
-            createdAt: hunter.createdAt
+          
           },
           progression: {
             xp: hunter.xp,
@@ -102,7 +254,7 @@ const hunterController = {
               rank: hunter.level.rank
             },
             nextLevelAt: nextThreshold,
-            xpNeeded: nextThreshold - hunter.xp,
+            xpNeeded: xpNeeded,
             performance: {
               score: hunter.performance.score,
               highestScore: hunter.performance.highestScore,
@@ -121,27 +273,18 @@ const hunterController = {
               id: title.title?._id || title.title,
               name: title.title?.name || 'Unknown Title',
               description: title.title?.description,
-              awardedAt: title.awardedAt,
-              validUntil: title.validUntil,
-              awardedBy: title.awardedBy?.username || 'System'
+           
             })),
             bountiesWon: hunter.achievements.bountiesWon.count,
             firstSubmissions: hunter.achievements.firstSubmissions.count,
             nonProfitBounties: hunter.achievements.nonProfitBounties.count
           },
-          // passes: {
-          //   timeExtension: hunter.passes.timeExtension.count,
-          //   resetFoul: hunter.passes.resetFoul.count,
-          //   booster: hunter.passes.booster.count,
-          //   seasonal: hunter.passes.seasonal.count,
-          //   consecutiveWins: hunter.passes.consecutiveWins
-          // },
           stats: {
-            activeBounties: activeBounties,
-            totalBounties: hunter.acceptedBounties.length,
-            completedBounties: hunter.performance.totalBountiesCalculated,
+            activeBounties: bountyCountByStatus.active,
+            totalBounties: bountyCountByStatus.total,
+            completedBounties: bountyCountByStatus.completed,
             completionRate: completionRate,
-            unreadNotifications: unreadNotifications
+           
           },
           quizStats: {
             totalQuizzes: hunter.quizStats?.totalQuizzes || 0,
@@ -160,6 +303,7 @@ const hunterController = {
           data: profileData
         });
       } catch (error) {
+        console.error('Error in getHunterProfile:', error);
         return res.status(500).json({
           status: 500,
           success: false,
@@ -168,6 +312,30 @@ const hunterController = {
         });
       }
     },
+    
+    // Helper function to calculate next level threshold
+    // function calculateNextLevelThreshold(xp, level) {
+    //   let nextThreshold;
+      
+    //   if (xp < 18000) {  // Bronze tier
+    //     if (level.rank === 'Novice') nextThreshold = 6000;
+    //     else if (level.rank === 'Specialist') nextThreshold = 12000;
+    //     else nextThreshold = 18000;
+    //   } else if (xp < 42000) {  // Silver tier
+    //     if (level.rank === 'Novice') nextThreshold = 26000;
+    //     else if (level.rank === 'Specialist') nextThreshold = 34000;
+    //     else nextThreshold = 42000;
+    //   } else {  // Gold tier
+    //     if (level.rank === 'Novice') nextThreshold = 52000;
+    //     else if (level.rank === 'Specialist') nextThreshold = 62000;
+    //     else nextThreshold = 72000;
+    //   }
+      
+    //   return {
+    //     nextThreshold,
+    //     xpNeeded: nextThreshold - xp
+    //   };
+    // }
     // Register new hunter
     async register(req, res) {
         const hunterData = req.body;

@@ -11,26 +11,26 @@ const notificationService = {
   async sendNewBountyNotification(bounty, lord) {
     try {
       // Get all verified hunters
-      const hunters = await Hunter.find({ 
+      const hunters = await Hunter.find({
         status: 'verified',
         isVerified: true
       }).select('name collegeEmail');
-      
+
       if (hunters.length === 0) {
         console.log('No verified hunters found to notify');
         return;
       }
-      
+
       // Extract all email addresses
       const allEmails = hunters.map(h => h.collegeEmail);
-      
+
       // Format dates for email
       const startDate = new Date(bounty.startTime).toLocaleDateString();
       const endDate = new Date(bounty.endTime).toLocaleDateString();
-      
+
       // Create email content
       const subject = `New Bounty Available: ${bounty.title}`;
-      
+
       const emailText = `
 Hello Hunters,
 
@@ -47,7 +47,7 @@ Log in to your account to view more details and register for this bounty.
 Best regards,
 The Bounty Hunter Platform Team
       `;
-      
+
       // Send a single email with BCC to all hunters
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
@@ -55,7 +55,7 @@ The Bounty Hunter Platform Team
         subject: subject,
         text: emailText
       });
-      
+
       console.log(`New bounty notification sent to ${hunters.length} hunters via BCC`);
     } catch (error) {
       console.error('Error sending bounty notifications:', error);
