@@ -67,35 +67,78 @@ const hunterBountyController = {
       },
 
     // Get single bounty details
+    // async getBountyDetails(req, res) {
+    //     try {
+    //         const bounty = await Bounty.findById(req.params.bountyId)
+    //             .populate('createdBy', 'username')
+    //             .populate('participants.hunter', 'username');
+
+    //         if (!bounty) {
+    //             return res.status(404).json({
+    //                 status: 404,
+    //                 success: false,
+    //                 message: 'Bounty not found'
+    //             });
+    //         }
+
+    //         return res.status(200).json({
+    //             status: 200,
+    //             success: true,
+    //             message: 'Bounty details fetched successfully',
+    //             data: bounty
+    //         });
+    //     } catch (error) {
+    //         return res.status(500).json({
+    //             status: 500,
+    //             success: false,
+    //             message: 'Error fetching bounty details',
+    //             error: error.message
+    //         });
+    //     }
+    // },
+
     async getBountyDetails(req, res) {
         try {
-            const bounty = await Bounty.findById(req.params.bountyId)
-                .populate('createdBy', 'username')
-                .populate('participants.hunter', 'username');
-
-            if (!bounty) {
-                return res.status(404).json({
-                    status: 404,
-                    success: false,
-                    message: 'Bounty not found'
-                });
-            }
-
-            return res.status(200).json({
-                status: 200,
-                success: true,
-                message: 'Bounty details fetched successfully',
-                data: bounty
+          const { bountyId } = req.params;
+          
+          // Validate ObjectId to avoid unnecessary database query
+          if (!mongoose.Types.ObjectId.isValid(bountyId)) {
+            return res.status(400).json({
+              status: 400,
+              success: false,
+              message: 'Invalid bounty ID format'
             });
+          }
+          
+          // Use projection to exclude specified fields
+          const bounty = await Bounty.findById(bountyId)
+            .select('-__v -participants -shortlistedHunters -createdBy -level -evaluatedHunters -resultId -createdAt')
+            .lean();
+          
+          if (!bounty) {
+            return res.status(404).json({
+              status: 404,
+              success: false,
+              message: 'Bounty not found'
+            });
+          }
+          
+          return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Bounty details fetched successfully',
+            data: bounty
+          });
         } catch (error) {
-            return res.status(500).json({
-                status: 500,
-                success: false,
-                message: 'Error fetching bounty details',
-                error: error.message
-            });
+          console.error('Error in getBountyDetails:', error);
+          return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error fetching bounty details',
+            error: error.message
+          });
         }
-    },
+      },
 
     // Check if hunter has accepted a bounty
 
