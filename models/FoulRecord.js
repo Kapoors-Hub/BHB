@@ -32,7 +32,7 @@ const foulRecordSchema = new mongoose.Schema({
     appliedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Admin',
-        required: true
+        required: false
     },
     appliedAt: {
         type: Date,
