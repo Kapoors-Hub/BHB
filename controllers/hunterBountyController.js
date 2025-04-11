@@ -223,6 +223,7 @@ async checkAcceptedBountyStatus(req, res) {
         try {
             const bounty = await Bounty.findById(req.params.bountyId);
             const hunterId = req.hunter.id;
+            const transporter = require('../config/mailer'); // Adjust path to your transporter file
     
             if (!bounty) {
                 return res.status(404).json({
@@ -301,8 +302,6 @@ async checkAcceptedBountyStatus(req, res) {
     
             // Send email notification
             try {
-                const emailService = require('../services/emailService'); // Adjust path as needed
-                
                 // Format dates for better readability
                 const startDate = new Date(bounty.startTime).toLocaleDateString();
                 const endDate = new Date(bounty.endTime).toLocaleDateString();
@@ -337,14 +336,16 @@ async checkAcceptedBountyStatus(req, res) {
                     <p>The Bounty Hunters Team</p>
                 `;
                 
-                // Send the email
-                await emailService.sendEmail(
-                    hunter.personalEmail, // Primary email
-                    subject,
-                    emailContent,
-                    hunter.collegeEmail // CC email (optional)
-                );
+                // Send the email using your transporter
+                const mailOptions = {
+                    from: process.env.EMAIL_USER,
+                    to: hunter.personalEmail,
+                    cc: hunter.collegeEmail,
+                    subject: subject,
+                    html: emailContent
+                };
                 
+                await transporter.sendMail(mailOptions);
                 console.log(`Sent registration email for bounty ${bounty._id} to hunter ${hunterId}`);
             } catch (emailError) {
                 // Log the error but don't fail the overall request
