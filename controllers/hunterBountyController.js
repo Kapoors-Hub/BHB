@@ -115,7 +115,7 @@ const hunterBountyController = {
           
           // Use projection to exclude specified fields
           const bounty = await Bounty.findById(bountyId)
-            .select('-__v -participants -shortlistedHunters -createdBy -level -evaluatedHunters -resultId -createdAt')
+            .select('-__v -participants -shortlistedHunters -createdBy  -evaluatedHunters -resultId -createdAt')
             .lean();
           
           if (!bounty) {
