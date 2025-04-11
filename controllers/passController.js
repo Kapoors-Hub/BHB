@@ -1221,7 +1221,7 @@ async useBoosterPass(req, res) {
       
       // Verify hunter is participating in this bounty
       const participantIndex = bounty.participants.findIndex(
-        p => p.hunter.toString() === hunterId && p.status === 'active'
+        p => p.hunter.toString() === hunterId 
       );
       
       if (participantIndex === -1) {
