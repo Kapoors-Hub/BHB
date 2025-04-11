@@ -1341,15 +1341,6 @@ async quitBounty(req, res) {
             });
         }
         
-        // Check if bounty is active
-        // if (bounty.status !== 'active') {
-        //     return res.status(400).json({
-        //         status: 400,
-        //         success: false,
-        //         message: 'Can only withdraw from active bounties'
-        //     });
-        // }
-        
         // Check if hunter has already submitted work
         if (bounty.participants[participantIndex].submission && 
             bounty.participants[participantIndex].submission.submittedAt) {
@@ -1358,6 +1349,88 @@ async quitBounty(req, res) {
                 success: false,
                 message: 'Cannot withdraw after submitting work'
             });
+        }
+
+        // Find the appropriate foul type
+        const quitBountyFoul = await Foul.findOne({ name: "Quits a bounty" });
+        
+        if (quitBountyFoul) {
+            // Find if this hunter has previous occurrences of this foul
+            const previousOccurrences = await FoulRecord.find({
+                hunter: hunterId,
+                foul: quitBountyFoul._id
+            });
+            
+            // Determine if this is a strike (second or later occurrence)
+            const isStrike = previousOccurrences.length > 0;
+            const occurrenceNumber = previousOccurrences.length + 1;
+            
+            // Only deduct XP if bounty is active, not if it's 'yts' (yet to start)
+            const xpPenalty = bounty.status === 'active' ? 625 : 0;
+            
+            // Create foul record
+            await FoulRecord.create({
+                hunter: hunterId,
+                foul: quitBountyFoul._id,
+                reason: `Quit bounty "${bounty.title}"`,
+                evidence: `Bounty ID: ${bountyId}`,
+                xpPenalty,
+                occurrenceNumber,
+                isStrike,
+                appliedBy: 'system',
+                relatedBounty: bountyId
+            });
+            
+            // Update hunter's XP and strike count if applicable
+            if (bounty.status === 'active') {
+                // Only deduct XP if bounty is active
+                await xpService.subtractLargeXP(hunterId);
+            }
+            
+            if (isStrike) {
+                // Increment strike count if this is a strike
+                await Hunter.findByIdAndUpdate(
+                    hunterId,
+                    { $inc: { 'strikes.count': 1 } }
+                );
+                
+                // Get updated hunter to check for suspension
+                const updatedHunter = await Hunter.findById(hunterId);
+                
+                // Check if this pushes hunter to 3 strikes (suspension threshold)
+                if (updatedHunter.strikes.count >= 3) {
+                    // Calculate suspension period (14 days from now)
+                    const suspensionStartDate = new Date();
+                    const suspensionEndDate = new Date();
+                    suspensionEndDate.setDate(suspensionEndDate.getDate() + 14);
+                    
+                    // Update hunter with suspension
+                    await Hunter.findByIdAndUpdate(
+                        hunterId,
+                        {
+                            $set: {
+                                'strikes.isCurrentlySuspended': true,
+                                'strikes.suspensionEndDate': suspensionEndDate
+                            },
+                            $push: {
+                                'strikes.suspensionHistory': {
+                                    startDate: suspensionStartDate,
+                                    endDate: suspensionEndDate,
+                                    reason: `Accumulated 3 strikes. Latest foul: Quit bounty "${bounty.title}"`
+                                }
+                            }
+                        }
+                    );
+                    
+                    // Notification for suspension
+                    await notificationController.createNotification({
+                        hunterId: hunterId,
+                        title: 'Account Suspended',
+                        message: `Your account has been suspended for 14 days due to accumulating 3 strikes. You will be able to return on ${suspensionEndDate.toLocaleDateString()}.`,
+                        type: 'system'
+                    });
+                }
+            }
         }
         
         // Update participant status to withdrawn
@@ -1381,7 +1454,7 @@ async quitBounty(req, res) {
         await notificationController.createNotification({
             hunterId: hunterId,
             title: 'Bounty Withdrawal',
-            message: `You have successfully withdrawn from the bounty: ${bounty.title}`,
+            message: `You have withdrawn from the bounty "${bounty.title}".${bounty.status === 'active' ? ' 625 XP has been deducted as penalty.' : ''}`,
             type: 'bounty',
             relatedItem: bountyId,
             itemModel: 'Bounty'
@@ -1393,7 +1466,9 @@ async quitBounty(req, res) {
             message: 'Successfully withdrawn from bounty',
             data: {
                 bountyTitle: bounty.title,
-                withdrawalDate: new Date()
+                withdrawalDate: new Date(),
+                xpPenalty: bounty.status === 'active' ? 625 : 0,
+                status: bounty.status
             }
         });
     } catch (error) {
