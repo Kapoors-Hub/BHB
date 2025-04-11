@@ -1379,7 +1379,7 @@ async quitBounty(req, res) {
                 xpPenalty,
                 occurrenceNumber,
                 isStrike,
-                appliedBy: 'system',
+               
                 relatedBounty: bountyId
             });
             
