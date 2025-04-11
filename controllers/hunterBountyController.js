@@ -223,7 +223,7 @@ async checkAcceptedBountyStatus(req, res) {
         try {
             const bounty = await Bounty.findById(req.params.bountyId);
             const hunterId = req.hunter.id;
-
+    
             if (!bounty) {
                 return res.status(404).json({
                     status: 404,
@@ -231,7 +231,7 @@ async checkAcceptedBountyStatus(req, res) {
                     message: 'Bounty not found'
                 });
             }
-
+    
             // Check if bounty is still accepting hunters
             if (bounty.currentHunters >= bounty.maxHunters) {
                 return res.status(400).json({
@@ -240,12 +240,12 @@ async checkAcceptedBountyStatus(req, res) {
                     message: 'Bounty has reached maximum participants'
                 });
             }
-
+    
             // Check if hunter already participating
             const isParticipating = bounty.participants.some(
                 p => p.hunter.toString() === hunterId
             );
-
+    
             if (isParticipating) {
                 return res.status(400).json({
                     status: 400,
@@ -253,7 +253,17 @@ async checkAcceptedBountyStatus(req, res) {
                     message: 'You are already participating in this bounty'
                 });
             }
-
+    
+            // Get hunter details for email
+            const hunter = await Hunter.findById(hunterId);
+            if (!hunter) {
+                return res.status(404).json({
+                    status: 404,
+                    success: false,
+                    message: 'Hunter not found'
+                });
+            }
+    
             // Add hunter to participants array and increment currentHunters
             await Bounty.findByIdAndUpdate(
                 bounty._id,
@@ -269,32 +279,85 @@ async checkAcceptedBountyStatus(req, res) {
                 },
                 { new: true }
             );
-
+    
             // Add bounty to hunter's accepted bounties
             await Hunter.findByIdAndUpdate(
                 hunterId,
                 { $push: { acceptedBounties: bounty._id } }
             );
-
+    
             const updatedBounty = await Bounty.findById(bounty._id)
                 .populate('participants.hunter', 'username');
-
+    
+            // Create in-app notification
             await notificationController.createNotification({
-                    hunterId: hunterId,
-                    title: 'Bounty Accepted',
-                    message: `You've successfully accepted the bounty: ${bounty.title}`,
-                    type: 'bounty',
-                    relatedItem: bounty._id,
-                    itemModel: 'Bounty'
-                });
-
+                hunterId: hunterId,
+                title: 'Bounty Accepted',
+                message: `You've successfully accepted the bounty: ${bounty.title}`,
+                type: 'bounty',
+                relatedItem: bounty._id,
+                itemModel: 'Bounty'
+            });
+    
+            // Send email notification
+            try {
+                const emailService = require('../services/emailService'); // Adjust path as needed
+                
+                // Format dates for better readability
+                const startDate = new Date(bounty.startTime).toLocaleDateString();
+                const endDate = new Date(bounty.endTime).toLocaleDateString();
+                const doubtSessionDate = new Date(bounty.doubtSessionDate).toLocaleDateString();
+                const doubtSessionTime = bounty.doubtSessionTime;
+                
+                // Email subject
+                const subject = `Registration Confirmed: ${bounty.title}`;
+                
+                // Email content
+                const emailContent = `
+                    <h2>Registration Confirmed!</h2>
+                    <p>Hello ${hunter.name},</p>
+                    <p>You have successfully registered for the bounty: <strong>${bounty.title}</strong>.</p>
+                    
+                    <h3>Bounty Details:</h3>
+                    <ul>
+                        <li><strong>Start Date:</strong> ${startDate}</li>
+                        <li><strong>End Date:</strong> ${endDate}</li>
+                        <li><strong>Reward Prize:</strong> ${bounty.rewardPrize}</li>
+                    </ul>
+                    
+                    <h3>Discussion Session:</h3>
+                    <p>Join the doubt clearing session at:</p>
+                    <ul>
+                        <li><strong>Date:</strong> ${doubtSessionDate}</li>
+                        <li><strong>Time:</strong> ${doubtSessionTime}</li>
+                        <li><strong>Link:</strong> <a href="${bounty.doubtSessionLink}">${bounty.doubtSessionLink}</a></li>
+                    </ul>
+                    
+                    <p>Good luck with your bounty hunt!</p>
+                    <p>The Bounty Hunters Team</p>
+                `;
+                
+                // Send the email
+                await emailService.sendEmail(
+                    hunter.personalEmail, // Primary email
+                    subject,
+                    emailContent,
+                    hunter.collegeEmail // CC email (optional)
+                );
+                
+                console.log(`Sent registration email for bounty ${bounty._id} to hunter ${hunterId}`);
+            } catch (emailError) {
+                // Log the error but don't fail the overall request
+                console.error('Error sending registration email:', emailError);
+            }
+    
             return res.status(200).json({
                 status: 200,
                 success: true,
                 message: 'Bounty accepted successfully',
                 data: updatedBounty
             });
-
+    
         } catch (error) {
             return res.status(500).json({
                 status: 500,
