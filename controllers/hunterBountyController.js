@@ -33,7 +33,7 @@ const hunterBountyController = {
               
             Bounty.countDocuments(query)  // Get total count for pagination
           ]);
-          
+   
           // Calculate pagination metadata
           const totalPages = Math.ceil(totalCount / limit);
           const hasNextPage = page < totalPages;
