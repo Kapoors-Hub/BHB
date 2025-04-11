@@ -77,12 +77,12 @@ const connectWithRetry = async () => {
 connectWithRetry();
 
 // Initialize WebSocket safely
-try {
-  initializeWebSocket(server);
-  console.log('WebSocket server initialized');
-} catch (error) {
-  console.error('Error initializing WebSocket server:', error);
-}
+// try {
+//   initializeWebSocket(server);
+//   console.log('WebSocket server initialized');
+// } catch (error) {
+//   console.error('Error initializing WebSocket server:', error);
+// }
 
 // Initialize cron jobs safely
 try {

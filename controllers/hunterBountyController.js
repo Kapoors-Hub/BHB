@@ -16,7 +16,7 @@ const hunterBountyController = {
           const page = parseInt(req.query.page) || 1;
           const limit = parseInt(req.query.limit) || 20;
           const skip = (page - 1) * limit;
-                    sss
+                
           // Build the query object to exclude completed bounties
           const query = { status: { $ne: 'completed' } };
           
