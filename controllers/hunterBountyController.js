@@ -1,6 +1,8 @@
 // controllers/hunterBountyController.js
 const Bounty = require('../models/Bounty');
 const BountyResult = require('../models/BountyResult');
+const Foul = require('../models/Foul');
+const FoulRecord = require('../models/FoulRecord');
 const Hunter = require('../models/Hunter');
 const { calculateReviewXP } = require('../services/xpService');
 const notificationController = require('./notificationController');
@@ -1352,7 +1354,7 @@ async quitBounty(req, res) {
         }
 
         // Find the appropriate foul type
-        const quitBountyFoul = await Foul.findOne({ name: "Quits a bounty" });
+        const quitBountyFoul = await Foul.findOne({ name: "Hunter Quits Bounty (Before LIVE)" });
         
         if (quitBountyFoul) {
             // Find if this hunter has previous occurrences of this foul
