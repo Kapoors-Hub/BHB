@@ -8,6 +8,7 @@ const { calculateReviewXP } = require('../services/xpService');
 const notificationController = require('./notificationController');
 const mongoose = require('mongoose');
 const path = require('path');
+const xpService = require('../services/xpService');
 
 const hunterBountyController = {
     // Get all available bounties
