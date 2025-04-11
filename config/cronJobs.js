@@ -9,7 +9,7 @@ const TitleAward = require('../models/TitleAward');
 
 const initCronJobs = () => {
     // Add this to your config/cronJobs.js file
-    cron.schedule('18 19 * * *', async () => {
+    cron.schedule('00 08 * * *', async () => {
         try {
 
             // Use IST (UTC+5:30)
@@ -61,7 +61,7 @@ const initCronJobs = () => {
     });
 
     // Add this to your config/cronJobs.js file
-    cron.schedule('32 20 * * *', async () => {
+    cron.schedule('45 12 * * *', async () => {
         try {
             const currentTime = new Date();
             console.log('Running bounty closure check at midnight:', currentTime.toISOString());
@@ -102,7 +102,7 @@ const initCronJobs = () => {
     });
 
 // Add to config/cronJobs.js
-cron.schedule('52 16 8 * *', async () => {
+cron.schedule('51 12 11 * *', async () => {
     try {
         const currentDate = new Date();
         console.log('Running monthly title revocation job on the 7th:', currentDate.toISOString());

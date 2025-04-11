@@ -120,16 +120,44 @@ const publicController = {
     try {
       const { hunterId } = req.params;
       
-      // Fetch hunter with related data, but only public information
-      const hunter = await Hunter.findById(hunterId)
-        .populate('badges.badge')
-        .populate({
-          path: 'titles.title',
-          select: 'name description' // Ensure we select title name and description
-        })
-        .select('name username xp level guild totalEarnings performance badges quizStats titles achievements.bountiesWon.count achievements.firstSubmissions.count achievements.nonProfitBounties.count status createdAt');
+      // Run queries in parallel for efficiency
+      const [hunter, xpRanking] = await Promise.all([
+        // Query 1: Get hunter profile data
+        Hunter.findById(hunterId)
+          .populate('badges.badge')
+          .populate({
+            path: 'titles.title',
+            select: 'name description'
+          })
+          .select('name username xp level guild totalEarnings performance badges quizStats titles achievements.bountiesWon.count achievements.firstSubmissions.count achievements.nonProfitBounties.count status createdAt')
+          .lean(),
+        
+        // Query 2: Get hunter's XP rank among all verified hunters
+        Hunter.aggregate([
+          { $match: { status: 'verified' } },
+          { $sort: { xp: -1 } },
+          { $group: {
+              _id: null,
+              hunters: { $push: { _id: '$_id', xp: '$xp' } }
+            }
+          },
+          { $project: {
+              _id: 0,
+              hunterRanks: {
+                $map: {
+                  input: { $range: [0, { $size: '$hunters' }] },
+                  as: 'index',
+                  in: {
+                    id: { $arrayElemAt: ['$hunters._id', '$$index'] },
+                    rank: { $add: ['$$index', 1] }
+                  }
+                }
+              }
+            }
+          }
+        ])
+      ]);
       
-      console.log(hunter);
       if (!hunter) {
         return res.status(404).json({
           status: 404,
@@ -147,11 +175,25 @@ const publicController = {
         });
       }
       
+      // Find hunter's rank from the ranking results
+      let xpRank = null;
+      let totalVerifiedHunters = 0;
+      if (xpRanking.length > 0 && xpRanking[0].hunterRanks) {
+        const ranksInfo = xpRanking[0].hunterRanks;
+        totalVerifiedHunters = ranksInfo.length;
+        
+        // Find this hunter's rank
+        const hunterRankInfo = ranksInfo.find(r => r.id.toString() === hunterId);
+        if (hunterRankInfo) {
+          xpRank = hunterRankInfo.rank;
+        }
+      }
+      
       // Format active titles
       const now = new Date();
       const activeTitles = hunter.titles.filter(title => title.validUntil > now);
       
-      // Calculate XP needed for next level (same logic as in private profile)
+      // Calculate XP needed for next level
       let nextThreshold;
       const xp = hunter.xp;
       
@@ -169,7 +211,7 @@ const publicController = {
         else nextThreshold = 72000;
       }
       
-      // Format response data - only include public information
+      // Format response data with ranking information
       const publicProfileData = {
         basicInfo: {
           id: hunter._id,
@@ -189,6 +231,12 @@ const publicController = {
           performance: {
             score: hunter.performance.score,
             totalBountiesCalculated: hunter.performance.totalBountiesCalculated
+          },
+          // Add XP ranking information
+          ranking: {
+            xpRank: xpRank,
+            totalHunters: totalVerifiedHunters,
+            percentile: xpRank ? Math.round((xpRank / totalVerifiedHunters) * 100) : null
           }
         },
         financial: {
@@ -205,7 +253,7 @@ const publicController = {
             id: title.title?._id || title.title,
             name: title.title?.name || 'Unknown Title',
             description: title.title?.description,
-            titleHolder: hunter.username // Include the title holder's username
+            titleHolder: hunter.username
           })),
           currentTitles: activeTitles.length > 0 ? {
             titleHolder: hunter.username,
@@ -235,6 +283,7 @@ const publicController = {
         data: publicProfileData
       });
     } catch (error) {
+      console.error('Error in getHunterPublicProfile:', error);
       return res.status(500).json({
         status: 500,
         success: false,
