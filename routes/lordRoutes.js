@@ -4,6 +4,7 @@ const lordController = require('../controllers/lordController');
 const bountyController = require('../controllers/bountyController')
 const issueController = require('../controllers/issueController');
 const { validateLordToken } = require('../middleware/validateLord');       
+const upload = require('../config/multer');
 
 // Auth routes
 router.post('/register', lordController.register);
@@ -16,7 +17,7 @@ router.get('/profile', validateLordToken, lordController.getLordProfile);
 router.put('/profile/update', validateLordToken, lordController.updateLordProfile)
 
 // Bounty routes (protected by validateLordToken)
-router.post('/bounties', validateLordToken, bountyController.createBounty);
+router.post('/bounties', validateLordToken, upload.array('files', 10) , bountyController.createBounty);
 router.get('/bounties', validateLordToken, bountyController.getLordBounties);
 router.get('/bounties/:bountyId', validateLordToken, bountyController.getBountyById);
 router.put('/bounties/:bountyId', validateLordToken, bountyController.updateBounty);

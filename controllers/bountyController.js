@@ -32,17 +32,23 @@ const bountyController = {
                 doubtSessionLink,
                 rewardPrize,
                 maxHunters,
-                assets,
                 assetsDescription
             } = req.body;
-
+    
+            // Process uploaded files
+            const uploadedAssets = req.files ? req.files.map(file => ({
+                fileName: file.originalname,
+                fileUrl: file.path, // or wherever you store the file path/URL
+                uploadedAt: new Date()
+            })) : [];
+    
             // Validate dates
             const currentDate = new Date();
             const startDate = new Date(startTime);
             const endDate = new Date(endTime);
             const resultDate = new Date(resultTime);
             const doubtDate = new Date(doubtSessionDate);
-
+    
             if (startDate < currentDate) {
                 return res.status(400).json({
                     status: 400,
@@ -50,7 +56,7 @@ const bountyController = {
                     message: 'Start time cannot be in the past'
                 });
             }
-
+    
             if (endDate <= startDate) {
                 return res.status(400).json({
                     status: 400,
@@ -58,7 +64,7 @@ const bountyController = {
                     message: 'End time must be after start time'
                 });
             }
-
+    
             if (resultDate <= endDate) {
                 return res.status(400).json({
                     status: 400,
@@ -66,10 +72,10 @@ const bountyController = {
                     message: 'Result time must be after end time'
                 });
             }
-
+    
             // Set initial status based on start time
             const initialStatus = currentDate >= startDate ? 'active' : 'yts';
-
+    
             const bounty = await Bounty.create({
                 title,
                 context,
@@ -83,23 +89,23 @@ const bountyController = {
                 doubtSessionLink,
                 rewardPrize,
                 maxHunters,
-                assets,
+                assets: uploadedAssets, // Use the processed files
                 assetsDescription,
                 status: initialStatus,
                 createdBy: req.lord.id
             });
-
+    
             await Lord.findByIdAndUpdate(
                 req.lord.id,
                 { $push: { bounties: bounty._id } },
                 { new: true }
             );
-
+    
             const lord = await Lord.findById(req.lord.id);
-
+    
             notificationService.sendNewBountyNotification(bounty, lord)
             .catch(err => console.error('Error in notification sending:', err));
-
+    
             return res.status(201).json({
                 status: 201,
                 success: true,
@@ -655,7 +661,7 @@ const bountyController = {
     //     }
     // },
 
-    // 1. First, let's modify the reviewSubmission controller to mark reviews as "draft" by default
+ 
 
     // Update in bountyController.js
     async reviewSubmission(req, res) {
