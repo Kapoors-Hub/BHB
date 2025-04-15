@@ -766,584 +766,584 @@ const bountyController = {
 
     // Post Bounty
 
-    async postBountyResult(req, res) {
-        const { bountyId } = req.params;
-        const lordId = req.lord.id;
-        let session = null;
+    // async postBountyResult(req, res) {
+    //     const { bountyId } = req.params;
+    //     const lordId = req.lord.id;
+    //     let session = null;
         
-        // Function to retry a transaction with exponential backoff
-        const runTransactionWithRetry = async (txnFunc, maxRetries = 5) => {
-          let retryCount = 0;
+    //     // Function to retry a transaction with exponential backoff
+    //     const runTransactionWithRetry = async (txnFunc, maxRetries = 5) => {
+    //       let retryCount = 0;
           
-          while (true) {
-            try {
-              // Start a new session for each retry
-              if (session) {
-                try { session.endSession(); } catch (e) { /* ignore */ }
-              }
-              session = await mongoose.startSession();
+    //       while (true) {
+    //         try {
+    //           // Start a new session for each retry
+    //           if (session) {
+    //             try { session.endSession(); } catch (e) { /* ignore */ }
+    //           }
+    //           session = await mongoose.startSession();
               
-              // Start transaction and run the function
-              session.startTransaction();
-              const result = await txnFunc(session);
-              await session.commitTransaction();
-              session.endSession();
-              return result; // Success! Exit the retry loop
-            } catch (error) {
-              // If we've reached max retries or it's not a transient error, throw it
-              const isTransientError = error.errorLabels && 
-                                    error.errorLabels.includes('TransientTransactionError');
+    //           // Start transaction and run the function
+    //           session.startTransaction();
+    //           const result = await txnFunc(session);
+    //           await session.commitTransaction();
+    //           session.endSession();
+    //           return result; // Success! Exit the retry loop
+    //         } catch (error) {
+    //           // If we've reached max retries or it's not a transient error, throw it
+    //           const isTransientError = error.errorLabels && 
+    //                                 error.errorLabels.includes('TransientTransactionError');
               
-              if (retryCount >= maxRetries || !isTransientError) {
-                if (session) {
-                  await session.abortTransaction().catch(e => console.error('Error aborting transaction:', e));
-                  session.endSession();
-                }
-                throw error; // Not a transient error or too many retries
-              }
+    //           if (retryCount >= maxRetries || !isTransientError) {
+    //             if (session) {
+    //               await session.abortTransaction().catch(e => console.error('Error aborting transaction:', e));
+    //               session.endSession();
+    //             }
+    //             throw error; // Not a transient error or too many retries
+    //           }
               
-              // It's a transient error, so wait and retry
-              retryCount++;
-              const waitTimeMs = Math.pow(2, retryCount) * 100; // Exponential backoff
-              console.log(`Transaction failed with transient error, retrying (${retryCount}/${maxRetries}) after ${waitTimeMs}ms`);
-              await new Promise(resolve => setTimeout(resolve, waitTimeMs));
+    //           // It's a transient error, so wait and retry
+    //           retryCount++;
+    //           const waitTimeMs = Math.pow(2, retryCount) * 100; // Exponential backoff
+    //           console.log(`Transaction failed with transient error, retrying (${retryCount}/${maxRetries}) after ${waitTimeMs}ms`);
+    //           await new Promise(resolve => setTimeout(resolve, waitTimeMs));
               
-              // Abort the current transaction before retrying
-              if (session) {
-                await session.abortTransaction().catch(e => console.error('Error aborting transaction:', e));
-              }
-            }
-          }
-        };
+    //           // Abort the current transaction before retrying
+    //           if (session) {
+    //             await session.abortTransaction().catch(e => console.error('Error aborting transaction:', e));
+    //           }
+    //         }
+    //       }
+    //     };
         
-        try {
-          // Execute the entire transaction with retry logic
-          const transactionResult = await runTransactionWithRetry(async (session) => {
-            // Get the bounty with participants populated
-            const bounty = await Bounty.findOne({
-              _id: bountyId,
-              createdBy: lordId
-            }).populate('participants.hunter').session(session);
+    //     try {
+    //       // Execute the entire transaction with retry logic
+    //       const transactionResult = await runTransactionWithRetry(async (session) => {
+    //         // Get the bounty with participants populated
+    //         const bounty = await Bounty.findOne({
+    //           _id: bountyId,
+    //           createdBy: lordId
+    //         }).populate('participants.hunter').session(session);
             
-            if (!bounty) {
-              throw new Error('Bounty not found or you are not authorized');
-            }
+    //         if (!bounty) {
+    //           throw new Error('Bounty not found or you are not authorized');
+    //         }
             
-            // Check if result date has reached
-            const currentDate = new Date();
-            if (currentDate < bounty.resultTime) {
-              throw new Error('Cannot post result before result date');
-            }
+    //         // Check if result date has reached
+    //         const currentDate = new Date();
+    //         if (currentDate < bounty.resultTime) {
+    //           throw new Error('Cannot post result before result date');
+    //         }
             
-            // Get reviewed submissions with stricter validation
-            const reviewedParticipants = bounty.participants.filter(
-              p => p.submission &&
-                p.submission.submittedAt &&
-                p.submission.review &&
-                typeof p.submission.review.totalScore === 'number' &&
-                p.submission.review.totalScore >= 0
-            );
+    //         // Get reviewed submissions with stricter validation
+    //         const reviewedParticipants = bounty.participants.filter(
+    //           p => p.submission &&
+    //             p.submission.submittedAt &&
+    //             p.submission.review &&
+    //             typeof p.submission.review.totalScore === 'number' &&
+    //             p.submission.review.totalScore >= 0
+    //         );
             
-            if (reviewedParticipants.length === 0) {
-              throw new Error('No submissions have been reviewed yet');
-            }
+    //         if (reviewedParticipants.length === 0) {
+    //           throw new Error('No submissions have been reviewed yet');
+    //         }
             
-            // Identify hunters who registered but did not submit
-            const nonSubmittingParticipants = bounty.participants.filter(
-              p => !p.submission || !p.submission.submittedAt
-            );
+    //         // Identify hunters who registered but did not submit
+    //         const nonSubmittingParticipants = bounty.participants.filter(
+    //           p => !p.submission || !p.submission.submittedAt
+    //         );
             
-            // Get foul type for non-submitting participants
-            const noSubmissionFoul = await Foul.findOne({ name: "Registers but does not submit" }).session(session);
+    //         // Get foul type for non-submitting participants
+    //         const noSubmissionFoul = await Foul.findOne({ name: "Registers but does not submit" }).session(session);
             
-            // Batch operations for non-submitting participants
-            const foulRecords = [];
-            const hunterUpdates = [];
-            const notificationPromises = [];
+    //         // Batch operations for non-submitting participants
+    //         const foulRecords = [];
+    //         const hunterUpdates = [];
+    //         const notificationPromises = [];
             
-            // Process non-submitting participants in bulk
-            for (const participant of nonSubmittingParticipants) {
-              const hunter = participant.hunter;
+    //         // Process non-submitting participants in bulk
+    //         for (const participant of nonSubmittingParticipants) {
+    //           const hunter = participant.hunter;
               
-              if (noSubmissionFoul) {
-                // Find previous occurrences in one query
-                const previousOccurrences = await FoulRecord.countDocuments({
-                  hunter: hunter._id,
-                  foul: noSubmissionFoul._id
-                }).session(session);
+    //           if (noSubmissionFoul) {
+    //             // Find previous occurrences in one query
+    //             const previousOccurrences = await FoulRecord.countDocuments({
+    //               hunter: hunter._id,
+    //               foul: noSubmissionFoul._id
+    //             }).session(session);
                 
-                const isStrike = previousOccurrences > 0;
-                const occurrenceNumber = previousOccurrences + 1;
-                const xpPenalty = 625;
+    //             const isStrike = previousOccurrences > 0;
+    //             const occurrenceNumber = previousOccurrences + 1;
+    //             const xpPenalty = 625;
                 
-                // Prepare foul record
-                foulRecords.push({
-                  hunter: hunter._id,
-                  foul: noSubmissionFoul._id,
-                  reason: `Registered for bounty "${bounty.title}" but did not submit work`,
-                  evidence: `Bounty ID: ${bountyId}`,
-                  xpPenalty,
-                  occurrenceNumber,
-                  isStrike,
-                  appliedBy: lordId,
-                  relatedBounty: bountyId
-                });
+    //             // Prepare foul record
+    //             foulRecords.push({
+    //               hunter: hunter._id,
+    //               foul: noSubmissionFoul._id,
+    //               reason: `Registered for bounty "${bounty.title}" but did not submit work`,
+    //               evidence: `Bounty ID: ${bountyId}`,
+    //               xpPenalty,
+    //               occurrenceNumber,
+    //               isStrike,
+    //               appliedBy: lordId,
+    //               relatedBounty: bountyId
+    //             });
                 
-                // Update hunter based on strike status
-                if (isStrike) {
-                  // Check if this pushes hunter to 3 strikes
-                  const updatedHunter = await Hunter.findById(hunter._id).session(session);
-                  const newStrikeCount = updatedHunter.strikes.count + 1;
+    //             // Update hunter based on strike status
+    //             if (isStrike) {
+    //               // Check if this pushes hunter to 3 strikes
+    //               const updatedHunter = await Hunter.findById(hunter._id).session(session);
+    //               const newStrikeCount = updatedHunter.strikes.count + 1;
                   
-                  let updateObj = {
-                    $inc: {
-                      xp: -xpPenalty,
-                      'strikes.count': 1
-                    }
-                  };
+    //               let updateObj = {
+    //                 $inc: {
+    //                   xp: -xpPenalty,
+    //                   'strikes.count': 1
+    //                 }
+    //               };
                   
-                  // Add suspension if reaching 3 strikes
-                  if (newStrikeCount >= 3) {
-                    const suspensionStartDate = new Date();
-                    const suspensionEndDate = new Date();
-                    suspensionEndDate.setDate(suspensionEndDate.getDate() + 14);
+    //               // Add suspension if reaching 3 strikes
+    //               if (newStrikeCount >= 3) {
+    //                 const suspensionStartDate = new Date();
+    //                 const suspensionEndDate = new Date();
+    //                 suspensionEndDate.setDate(suspensionEndDate.getDate() + 14);
                     
-                    updateObj.$set = {
-                      'strikes.isCurrentlySuspended': true,
-                      'strikes.suspensionEndDate': suspensionEndDate
-                    };
+    //                 updateObj.$set = {
+    //                   'strikes.isCurrentlySuspended': true,
+    //                   'strikes.suspensionEndDate': suspensionEndDate
+    //                 };
                     
-                    updateObj.$push = {
-                      'strikes.suspensionHistory': {
-                        startDate: suspensionStartDate,
-                        endDate: suspensionEndDate,
-                        reason: `Accumulated 3 strikes. Latest foul: No submission for bounty "${bounty.title}"`
-                      }
-                    };
+    //                 updateObj.$push = {
+    //                   'strikes.suspensionHistory': {
+    //                     startDate: suspensionStartDate,
+    //                     endDate: suspensionEndDate,
+    //                     reason: `Accumulated 3 strikes. Latest foul: No submission for bounty "${bounty.title}"`
+    //                   }
+    //                 };
                     
-                    // Notification for suspension
-                    notificationPromises.push({
-                      hunterId: hunter._id,
-                      title: 'Account Suspended',
-                      message: `Your account has been suspended for 14 days due to accumulating 3 strikes. You will be able to return on ${suspensionEndDate.toLocaleDateString()}.`,
-                      type: 'system'
-                    });
-                  }
+    //                 // Notification for suspension
+    //                 notificationPromises.push({
+    //                   hunterId: hunter._id,
+    //                   title: 'Account Suspended',
+    //                   message: `Your account has been suspended for 14 days due to accumulating 3 strikes. You will be able to return on ${suspensionEndDate.toLocaleDateString()}.`,
+    //                   type: 'system'
+    //                 });
+    //               }
                   
-                  hunterUpdates.push({
-                    updateOne: {
-                      filter: { _id: hunter._id },
-                      update: updateObj
-                    }
-                  });
-                } else {
-                  // Just deduct XP for first occurrence
-                  hunterUpdates.push({
-                    updateOne: {
-                      filter: { _id: hunter._id },
-                      update: { $inc: { xp: -xpPenalty } }
-                    }
-                  });
-                }
+    //               hunterUpdates.push({
+    //                 updateOne: {
+    //                   filter: { _id: hunter._id },
+    //                   update: updateObj
+    //                 }
+    //               });
+    //             } else {
+    //               // Just deduct XP for first occurrence
+    //               hunterUpdates.push({
+    //                 updateOne: {
+    //                   filter: { _id: hunter._id },
+    //                   update: { $inc: { xp: -xpPenalty } }
+    //                 }
+    //               });
+    //             }
                 
-                // Notification for foul
-                notificationPromises.push({
-                  hunterId: hunter._id,
-                  title: 'Foul Received',
-                  message: `You have received a foul for registering but not submitting work for bounty "${bounty.title}". This has resulted in a penalty of ${xpPenalty} XP.${isStrike ? ' This foul counts as a strike.' : ''}`,
-                  type: 'system'
-                });
-              }
-            }
+    //             // Notification for foul
+    //             notificationPromises.push({
+    //               hunterId: hunter._id,
+    //               title: 'Foul Received',
+    //               message: `You have received a foul for registering but not submitting work for bounty "${bounty.title}". This has resulted in a penalty of ${xpPenalty} XP.${isStrike ? ' This foul counts as a strike.' : ''}`,
+    //               type: 'system'
+    //             });
+    //           }
+    //         }
             
-            // Sort by score for rankings
-            const sortedParticipants = reviewedParticipants.sort(
-              (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
-            );
+    //         // Sort by score for rankings
+    //         const sortedParticipants = reviewedParticipants.sort(
+    //           (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
+    //         );
             
-            // Check if this is a non-profit bounty
-            const isNonProfit = bounty.rewardPrize === 0;
-            if (isNonProfit) {
-              // Batch update for non-profit participants
-              for (const participant of reviewedParticipants) {
-                hunterUpdates.push({
-                  updateOne: {
-                    filter: { _id: participant.hunter._id },
-                    update: {
-                      $inc: { 'achievements.nonProfitBounties.count': 1 },
-                      $push: { 'achievements.nonProfitBounties.bountyIds': bountyId }
-                    }
-                  }
-                });
+    //         // Check if this is a non-profit bounty
+    //         const isNonProfit = bounty.rewardPrize === 0;
+    //         if (isNonProfit) {
+    //           // Batch update for non-profit participants
+    //           for (const participant of reviewedParticipants) {
+    //             hunterUpdates.push({
+    //               updateOne: {
+    //                 filter: { _id: participant.hunter._id },
+    //                 update: {
+    //                   $inc: { 'achievements.nonProfitBounties.count': 1 },
+    //                   $push: { 'achievements.nonProfitBounties.bountyIds': bountyId }
+    //                 }
+    //               }
+    //             });
                 
-                notificationPromises.push({
-                  hunterId: participant.hunter._id,
-                  title: 'Non-Profit Bounty Completed',
-                  message: `You've completed a non-profit bounty: "${bounty.title}". Thank you for your contribution!`,
-                  type: 'achievement',
-                  relatedItem: bountyId,
-                  itemModel: 'Bounty'
-                });
-              }
-            }
+    //             notificationPromises.push({
+    //               hunterId: participant.hunter._id,
+    //               title: 'Non-Profit Bounty Completed',
+    //               message: `You've completed a non-profit bounty: "${bounty.title}". Thank you for your contribution!`,
+    //               type: 'achievement',
+    //               relatedItem: bountyId,
+    //               itemModel: 'Bounty'
+    //             });
+    //           }
+    //         }
             
-            // Create result rankings data
-            const resultRankings = [];
-            const xpService = require('../services/xpService');
-            const passTypePromise = PassType.findOne({ name: 'booster' }).session(session);
+    //         // Create result rankings data
+    //         const resultRankings = [];
+    //         const xpService = require('../services/xpService');
+    //         const passTypePromise = PassType.findOne({ name: 'booster' }).session(session);
             
-            // Process each ranked participant
-            const levelCheckPromises = [];
+    //         // Process each ranked participant
+    //         const levelCheckPromises = [];
             
-            for (let i = 0; i < sortedParticipants.length; i++) {
-              const participant = sortedParticipants[i];
-              const hunter = participant.hunter;
-              const rank = i + 1;
+    //         for (let i = 0; i < sortedParticipants.length; i++) {
+    //           const participant = sortedParticipants[i];
+    //           const hunter = participant.hunter;
+    //           const rank = i + 1;
               
-              // Calculate base XP from scores
-              const scores = [
-                participant.submission.review.adherenceToBrief,
-                participant.submission.review.conceptualThinking,
-                participant.submission.review.technicalExecution,
-                participant.submission.review.originalityCreativity,
-                participant.submission.review.documentation
-              ];
+    //           // Calculate base XP from scores
+    //           const scores = [
+    //             participant.submission.review.adherenceToBrief,
+    //             participant.submission.review.conceptualThinking,
+    //             participant.submission.review.technicalExecution,
+    //             participant.submission.review.originalityCreativity,
+    //             participant.submission.review.documentation
+    //           ];
               
-              let xpEarned = xpService.calculateReviewXP(scores);
+    //           let xpEarned = xpService.calculateReviewXP(scores);
               
-              // Apply booster if active
-              if (participant.boosterActive) {
-                try {
-                  const passType = await passTypePromise;
-                  const boostPercentage = passType?.boostPercentage || 25;
-                  const boostMultiplier = 1 + (boostPercentage / 100);
-                  const originalXP = xpEarned;
-                  xpEarned = Math.round(xpEarned * boostMultiplier);
-                  const extraXP = xpEarned - originalXP;
+    //           // Apply booster if active
+    //           if (participant.boosterActive) {
+    //             try {
+    //               const passType = await passTypePromise;
+    //               const boostPercentage = passType?.boostPercentage || 25;
+    //               const boostMultiplier = 1 + (boostPercentage / 100);
+    //               const originalXP = xpEarned;
+    //               xpEarned = Math.round(xpEarned * boostMultiplier);
+    //               const extraXP = xpEarned - originalXP;
                   
-                  notificationPromises.push({
-                    hunterId: hunter._id,
-                    title: 'XP Boost Applied',
-                    message: `Your Booster Pass gave you an extra ${extraXP} XP (${boostPercentage}% boost) for bounty "${bounty.title}"!`,
-                    type: 'bounty',
-                    relatedItem: bountyId,
-                    itemModel: 'Bounty'
-                  });
-                } catch (error) {
-                  console.error('Error applying booster pass effect:', error);
-                }
-              }
+    //               notificationPromises.push({
+    //                 hunterId: hunter._id,
+    //                 title: 'XP Boost Applied',
+    //                 message: `Your Booster Pass gave you an extra ${extraXP} XP (${boostPercentage}% boost) for bounty "${bounty.title}"!`,
+    //                 type: 'bounty',
+    //                 relatedItem: bountyId,
+    //                 itemModel: 'Bounty'
+    //               });
+    //             } catch (error) {
+    //               console.error('Error applying booster pass effect:', error);
+    //             }
+    //           }
               
-              // Track XP earned in participant for later updating
-              participant.xpEarned = xpEarned;
+    //           // Track XP earned in participant for later updating
+    //           participant.xpEarned = xpEarned;
               
-              // Check for level changes
-              const currentHunter = await Hunter.findById(hunter._id).session(session);
-              const originalTier = currentHunter.level.tier;
-              const originalRank = currentHunter.level.rank;
+    //           // Check for level changes
+    //           const currentHunter = await Hunter.findById(hunter._id).session(session);
+    //           const originalTier = currentHunter.level.tier;
+    //           const originalRank = currentHunter.level.rank;
               
-              // We'll check for level changes after transaction
-              levelCheckPromises.push({
-                hunterId: hunter._id,
-                originalTier,
-                originalRank,
-                bountyTitle: bounty.title
-              });
+    //           // We'll check for level changes after transaction
+    //           levelCheckPromises.push({
+    //             hunterId: hunter._id,
+    //             originalTier,
+    //             originalRank,
+    //             bountyTitle: bounty.title
+    //           });
               
-              // Update hunter's profile based on rank
-              let updateObj = { $inc: { xp: xpEarned } };
+    //           // Update hunter's profile based on rank
+    //           let updateObj = { $inc: { xp: xpEarned } };
               
-              // Additional updates based on position
-              if (rank === 1) {
-                // Winner specific updates
-                updateObj.$inc = {
-                  ...updateObj.$inc,
-                  'achievements.bountiesWon.count': 1,
-                  'passes.resetFoul.count': 1
-                };
+    //           // Additional updates based on position
+    //           if (rank === 1) {
+    //             // Winner specific updates
+    //             updateObj.$inc = {
+    //               ...updateObj.$inc,
+    //               'achievements.bountiesWon.count': 1,
+    //               'passes.resetFoul.count': 1
+    //             };
                 
-                if (!updateObj.$push) updateObj.$push = {};
-                updateObj.$push['achievements.bountiesWon.bountyIds'] = bountyId;
+    //             if (!updateObj.$push) updateObj.$push = {};
+    //             updateObj.$push['achievements.bountiesWon.bountyIds'] = bountyId;
                 
-                // Increment consecutive wins
-                const hunterConsWins = currentHunter.passes?.consecutiveWins || 0;
-                const newConsWins = hunterConsWins + 1;
-                updateObj.$set = { ...updateObj.$set, 'passes.consecutiveWins': newConsWins };
+    //             // Increment consecutive wins
+    //             const hunterConsWins = currentHunter.passes?.consecutiveWins || 0;
+    //             const newConsWins = hunterConsWins + 1;
+    //             updateObj.$set = { ...updateObj.$set, 'passes.consecutiveWins': newConsWins };
                 
-                // Check if earned booster pass (2+ consecutive wins)
-                if (newConsWins >= 2) {
-                  updateObj.$inc['passes.booster.count'] = 1;
-                  updateObj.$set['passes.consecutiveWins'] = 0; // Reset counter
-                }
+    //             // Check if earned booster pass (2+ consecutive wins)
+    //             if (newConsWins >= 2) {
+    //               updateObj.$inc['passes.booster.count'] = 1;
+    //               updateObj.$set['passes.consecutiveWins'] = 0; // Reset counter
+    //             }
                 
-                // Award prize money if not non-profit
-                if (!isNonProfit) {
-                  updateObj.$inc.totalEarnings = bounty.rewardPrize;
+    //             // Award prize money if not non-profit
+    //             if (!isNonProfit) {
+    //               updateObj.$inc.totalEarnings = bounty.rewardPrize;
                   
-                  // Create transaction for winner
-                  await transactionService.createTransaction({
-                    hunterId: hunter._id,
-                    amount: bounty.rewardPrize,
-                    type: 'credit',
-                    category: 'bounty',
-                    description: `Winner reward for bounty: ${bounty.title}`,
-                    reference: bountyId,
-                    referenceModel: 'Bounty',
-                    initiatedBy: {
-                      id: lordId,
-                      role: 'Lord'
-                    },
-                    metaData: {
-                      rank: 1,
-                      totalParticipants: sortedParticipants.length
-                    }
-                  }, session);
+    //               // Create transaction for winner
+    //               await transactionService.createTransaction({
+    //                 hunterId: hunter._id,
+    //                 amount: bounty.rewardPrize,
+    //                 type: 'credit',
+    //                 category: 'bounty',
+    //                 description: `Winner reward for bounty: ${bounty.title}`,
+    //                 reference: bountyId,
+    //                 referenceModel: 'Bounty',
+    //                 initiatedBy: {
+    //                   id: lordId,
+    //                   role: 'Lord'
+    //                 },
+    //                 metaData: {
+    //                   rank: 1,
+    //                   totalParticipants: sortedParticipants.length
+    //                 }
+    //               }, session);
                   
-                  notificationPromises.push({
-                    hunterId: hunter._id,
-                    title: 'Reward Received',
-                    message: `You've received ${bounty.rewardPrize} for winning the bounty "${bounty.title}"`,
-                    type: 'bounty',
-                    relatedItem: bountyId,
-                    itemModel: 'Bounty'
-                  });
-                }
-              } else {
-                // Non-winner: reset consecutive wins
-                updateObj.$set = { ...updateObj.$set, 'passes.consecutiveWins': 0 };
+    //               notificationPromises.push({
+    //                 hunterId: hunter._id,
+    //                 title: 'Reward Received',
+    //                 message: `You've received ${bounty.rewardPrize} for winning the bounty "${bounty.title}"`,
+    //                 type: 'bounty',
+    //                 relatedItem: bountyId,
+    //                 itemModel: 'Bounty'
+    //               });
+    //             }
+    //           } else {
+    //             // Non-winner: reset consecutive wins
+    //             updateObj.$set = { ...updateObj.$set, 'passes.consecutiveWins': 0 };
                 
-                // Last place specific update
-                if (rank === sortedParticipants.length) {
-                  updateObj.$inc = {
-                    ...updateObj.$inc,
-                    'achievements.lastPlaceFinishes.count': 1
-                  };
+    //             // Last place specific update
+    //             if (rank === sortedParticipants.length) {
+    //               updateObj.$inc = {
+    //                 ...updateObj.$inc,
+    //                 'achievements.lastPlaceFinishes.count': 1
+    //               };
                   
-                  if (!updateObj.$push) updateObj.$push = {};
-                  updateObj.$push['achievements.lastPlaceFinishes.bountyIds'] = bountyId;
-                }
-              }
+    //               if (!updateObj.$push) updateObj.$push = {};
+    //               updateObj.$push['achievements.lastPlaceFinishes.bountyIds'] = bountyId;
+    //             }
+    //           }
               
-              // Add to batch update
-              hunterUpdates.push({
-                updateOne: {
-                  filter: { _id: hunter._id },
-                  update: updateObj
-                }
-              });
+    //           // Add to batch update
+    //           hunterUpdates.push({
+    //             updateOne: {
+    //               filter: { _id: hunter._id },
+    //               update: updateObj
+    //             }
+    //           });
               
-              // Update submission review status
-              participant.submission.review.reviewStatus = 'published';
+    //           // Update submission review status
+    //           participant.submission.review.reviewStatus = 'published';
               
-              // Notification for results
-              notificationPromises.push({
-                hunterId: hunter._id,
-                title: 'Bounty Results Published',
-                message: `Results for "${bounty.title}" are now available. You ranked #${rank} out of ${sortedParticipants.length} hunters.`,
-                type: 'bounty',
-                relatedItem: bountyId,
-                itemModel: 'Bounty'
-              });
+    //           // Notification for results
+    //           notificationPromises.push({
+    //             hunterId: hunter._id,
+    //             title: 'Bounty Results Published',
+    //             message: `Results for "${bounty.title}" are now available. You ranked #${rank} out of ${sortedParticipants.length} hunters.`,
+    //             type: 'bounty',
+    //             relatedItem: bountyId,
+    //             itemModel: 'Bounty'
+    //           });
               
-              // Add to rankings for result
-              resultRankings.push({
-                hunter: hunter._id,
-                rank,
-                score: participant.submission.review.totalScore,
-                scores: {
-                  adherenceToBrief: participant.submission.review.adherenceToBrief,
-                  conceptualThinking: participant.submission.review.conceptualThinking,
-                  technicalExecution: participant.submission.review.technicalExecution,
-                  originalityCreativity: participant.submission.review.originalityCreativity,
-                  documentation: participant.submission.review.documentation
-                },
-                xpEarned,
-                rewardEarned: rank === 1 ? bounty.rewardPrize : 0
-              });
-            }
+    //           // Add to rankings for result
+    //           resultRankings.push({
+    //             hunter: hunter._id,
+    //             rank,
+    //             score: participant.submission.review.totalScore,
+    //             scores: {
+    //               adherenceToBrief: participant.submission.review.adherenceToBrief,
+    //               conceptualThinking: participant.submission.review.conceptualThinking,
+    //               technicalExecution: participant.submission.review.technicalExecution,
+    //               originalityCreativity: participant.submission.review.originalityCreativity,
+    //               documentation: participant.submission.review.documentation
+    //             },
+    //             xpEarned,
+    //             rewardEarned: rank === 1 ? bounty.rewardPrize : 0
+    //           });
+    //         }
             
-            // Process passes in bulk - Clean Slate for winner and Booster for consecutive wins
-            const passUpdates = [];
-            if (sortedParticipants.length > 0) {
-              const winnerHunter = sortedParticipants[0].hunter;
+    //         // Process passes in bulk - Clean Slate for winner and Booster for consecutive wins
+    //         const passUpdates = [];
+    //         if (sortedParticipants.length > 0) {
+    //           const winnerHunter = sortedParticipants[0].hunter;
               
-              // Add Clean Slate pass for winner
-              passUpdates.push({
-                updateOne: {
-                  filter: { hunter: winnerHunter._id, passType: 'cleanSlate' },
-                  update: { $inc: { count: 1 }, $set: { lastUpdated: new Date() } },
-                  upsert: true
-                }
-              });
+    //           // Add Clean Slate pass for winner
+    //           passUpdates.push({
+    //             updateOne: {
+    //               filter: { hunter: winnerHunter._id, passType: 'cleanSlate' },
+    //               update: { $inc: { count: 1 }, $set: { lastUpdated: new Date() } },
+    //               upsert: true
+    //             }
+    //           });
               
-              // Add Booster pass if needed (for 2+ consecutive wins)
-              const winnerConsecutiveWins = await Hunter.findById(winnerHunter._id)
-                .select('passes.consecutiveWins')
-                .session(session);
+    //           // Add Booster pass if needed (for 2+ consecutive wins)
+    //           const winnerConsecutiveWins = await Hunter.findById(winnerHunter._id)
+    //             .select('passes.consecutiveWins')
+    //             .session(session);
               
-              if ((winnerConsecutiveWins.passes?.consecutiveWins || 0) >= 1) { // Will become 2+ after increment
-                passUpdates.push({
-                  updateOne: {
-                    filter: { hunter: winnerHunter._id, passType: 'booster' },
-                    update: { $inc: { count: 1 }, $set: { lastUpdated: new Date() } },
-                    upsert: true
-                  }
-                });
-              }
-            }
+    //           if ((winnerConsecutiveWins.passes?.consecutiveWins || 0) >= 1) { // Will become 2+ after increment
+    //             passUpdates.push({
+    //               updateOne: {
+    //                 filter: { hunter: winnerHunter._id, passType: 'booster' },
+    //                 update: { $inc: { count: 1 }, $set: { lastUpdated: new Date() } },
+    //                 upsert: true
+    //               }
+    //             });
+    //           }
+    //         }
             
-            // Format non-submitters for result
-            const nonSubmitters = nonSubmittingParticipants.map(participant => ({
-              hunter: participant.hunter._id,
-              foulApplied: true,
-            }));
+    //         // Format non-submitters for result
+    //         const nonSubmitters = nonSubmittingParticipants.map(participant => ({
+    //           hunter: participant.hunter._id,
+    //           foulApplied: true,
+    //         }));
             
-            // Update bounty status
-            bounty.status = 'completed';
+    //         // Update bounty status
+    //         bounty.status = 'completed';
             
-            // Execute all bulk operations
-            const operations = [];
+    //         // Execute all bulk operations
+    //         const operations = [];
             
-            // 1. Insert foul records if any
-            if (foulRecords.length > 0) {
-              operations.push(FoulRecord.insertMany(foulRecords, { session }));
-            }
+    //         // 1. Insert foul records if any
+    //         if (foulRecords.length > 0) {
+    //           operations.push(FoulRecord.insertMany(foulRecords, { session }));
+    //         }
             
-            // 2. Update hunter documents in bulk
-            if (hunterUpdates.length > 0) {
-              operations.push(Hunter.bulkWrite(hunterUpdates, { session }));
-            }
+    //         // 2. Update hunter documents in bulk
+    //         if (hunterUpdates.length > 0) {
+    //           operations.push(Hunter.bulkWrite(hunterUpdates, { session }));
+    //         }
             
-            // 3. Update passes in bulk
-            if (passUpdates.length > 0) {
-              operations.push(HunterPass.bulkWrite(passUpdates, { session }));
-            }
+    //         // 3. Update passes in bulk
+    //         if (passUpdates.length > 0) {
+    //           operations.push(HunterPass.bulkWrite(passUpdates, { session }));
+    //         }
             
-            // 4. Create bounty result
-            const bountyResult = new BountyResult({
-              bounty: bountyId,
-              postedBy: lordId,
-              rankings: resultRankings,
-              nonSubmitters
-            });
+    //         // 4. Create bounty result
+    //         const bountyResult = new BountyResult({
+    //           bounty: bountyId,
+    //           postedBy: lordId,
+    //           rankings: resultRankings,
+    //           nonSubmitters
+    //         });
             
-            operations.push(bountyResult.save({ session }));
+    //         operations.push(bountyResult.save({ session }));
             
-            // 5. Update bounty with completed status and result ID
-            bounty.resultId = bountyResult._id;
-            operations.push(bounty.save({ session }));
+    //         // 5. Update bounty with completed status and result ID
+    //         bounty.resultId = bountyResult._id;
+    //         operations.push(bounty.save({ session }));
             
-            // Execute all database operations
-            await Promise.all(operations);
+    //         // Execute all database operations
+    //         await Promise.all(operations);
             
-            // Return data for post-transaction processing
-            return {
-              bounty,
-              sortedParticipants,
-              reviewedParticipants,
-              notificationsToCreate: notificationPromises,
-              levelCheckPromises
-            };
-          });
+    //         // Return data for post-transaction processing
+    //         return {
+    //           bounty,
+    //           sortedParticipants,
+    //           reviewedParticipants,
+    //           notificationsToCreate: notificationPromises,
+    //           levelCheckPromises
+    //         };
+    //       });
           
-          // The transaction completed successfully, now process notifications and other operations
-          const { 
-            bounty, 
-            sortedParticipants, 
-            reviewedParticipants, 
-            notificationsToCreate, 
-            levelCheckPromises 
-          } = transactionResult;
+    //       // The transaction completed successfully, now process notifications and other operations
+    //       const { 
+    //         bounty, 
+    //         sortedParticipants, 
+    //         reviewedParticipants, 
+    //         notificationsToCreate, 
+    //         levelCheckPromises 
+    //       } = transactionResult;
           
-          // After transaction, process notifications
-          for (const notification of notificationsToCreate) {
-            await notificationController.createNotification(notification);
-          }
+    //       // After transaction, process notifications
+    //       for (const notification of notificationsToCreate) {
+    //         await notificationController.createNotification(notification);
+    //       }
           
-          // Check and update level tiers after transaction
-          for (const levelCheck of levelCheckPromises) {
-            try {
-              const updatedHunter = await Hunter.findById(levelCheck.hunterId);
-              // Use the existing updateLevel method on the hunter model
-              updatedHunter.updateLevel();
-              await updatedHunter.save();
+    //       // Check and update level tiers after transaction
+    //       for (const levelCheck of levelCheckPromises) {
+    //         try {
+    //           const updatedHunter = await Hunter.findById(levelCheck.hunterId);
+    //           // Use the existing updateLevel method on the hunter model
+    //           updatedHunter.updateLevel();
+    //           await updatedHunter.save();
               
-              // Check if level changed and send notification if it did
-              if (updatedHunter.level.tier !== levelCheck.originalTier || 
-                  updatedHunter.level.rank !== levelCheck.originalRank) {
-                await notificationController.createNotification({
-                  hunterId: levelCheck.hunterId,
-                  title: 'Level Up!',
-                  message: `Congratulations! You've leveled up to ${updatedHunter.level.tier} ${updatedHunter.level.rank} after completing the bounty "${levelCheck.bountyTitle}".`,
-                  type: 'achievement'
-                });
-              }
-            } catch (err) {
-              console.error('Error updating hunter level:', err);
-            }
-          }
+    //           // Check if level changed and send notification if it did
+    //           if (updatedHunter.level.tier !== levelCheck.originalTier || 
+    //               updatedHunter.level.rank !== levelCheck.originalRank) {
+    //             await notificationController.createNotification({
+    //               hunterId: levelCheck.hunterId,
+    //               title: 'Level Up!',
+    //               message: `Congratulations! You've leveled up to ${updatedHunter.level.tier} ${updatedHunter.level.rank} after completing the bounty "${levelCheck.bountyTitle}".`,
+    //               type: 'achievement'
+    //             });
+    //           }
+    //         } catch (err) {
+    //           console.error('Error updating hunter level:', err);
+    //         }
+    //       }
           
-          // Update performance scores asynchronously (outside transaction)
-          if (bounty.participants.length > 1) {
-            const performanceCalculator = require('../utils/performanceCalculator');
-            for (let i = 0; i < sortedParticipants.length; i++) {
-              const participant = sortedParticipants[i];
-              performanceCalculator.calculatePerformanceScore(
-                participant.hunter._id.toString(),
-                bountyId,
-                i + 1,
-                participant.xpEarned
-              ).catch(err => console.error('Error calculating performance score:', err));
-            }
-          }
+    //       // Update performance scores asynchronously (outside transaction)
+    //       if (bounty.participants.length > 1) {
+    //         const performanceCalculator = require('../utils/performanceCalculator');
+    //         for (let i = 0; i < sortedParticipants.length; i++) {
+    //           const participant = sortedParticipants[i];
+    //           performanceCalculator.calculatePerformanceScore(
+    //             participant.hunter._id.toString(),
+    //             bountyId,
+    //             i + 1,
+    //             participant.xpEarned
+    //           ).catch(err => console.error('Error calculating performance score:', err));
+    //         }
+    //       }
           
-          // Award badges asynchronously (outside transaction)
-          for (const participant of reviewedParticipants) {
-            checkAndAwardBadges(participant.hunter._id).catch(err => 
-              console.error('Error checking/awarding badges:', err)
-            );
-          }
+    //       // Award badges asynchronously (outside transaction)
+    //       for (const participant of reviewedParticipants) {
+    //         checkAndAwardBadges(participant.hunter._id).catch(err => 
+    //           console.error('Error checking/awarding badges:', err)
+    //         );
+    //       }
           
-          // Return success response
-          return res.status(200).json({
-            status: 200,
-            success: true,
-            message: 'Bounty result posted successfully',
-            data: {
-              bountyTitle: bounty.title,
-              totalParticipants: bounty.participants.length,
-              reviewedParticipants: reviewedParticipants.length,
-              nonSubmittingParticipants: bounty.participants.length - reviewedParticipants.length,
-              foulsApplied: bounty.participants.length - reviewedParticipants.length,
-              rankings: sortedParticipants.map((p, index) => ({
-                rank: index + 1,
-                hunter: p.hunter.username,
-                score: p.submission.review.totalScore
-              }))
-            }
-          });
+    //       // Return success response
+    //       return res.status(200).json({
+    //         status: 200,
+    //         success: true,
+    //         message: 'Bounty result posted successfully',
+    //         data: {
+    //           bountyTitle: bounty.title,
+    //           totalParticipants: bounty.participants.length,
+    //           reviewedParticipants: reviewedParticipants.length,
+    //           nonSubmittingParticipants: bounty.participants.length - reviewedParticipants.length,
+    //           foulsApplied: bounty.participants.length - reviewedParticipants.length,
+    //           rankings: sortedParticipants.map((p, index) => ({
+    //             rank: index + 1,
+    //             hunter: p.hunter.username,
+    //             score: p.submission.review.totalScore
+    //           }))
+    //         }
+    //       });
           
-        } catch (error) {
-          console.error('Error in postBountyResult:', error);
+    //     } catch (error) {
+    //       console.error('Error in postBountyResult:', error);
           
-          // Abort transaction if it's active and hasn't been cleaned up yet
-          if (session) {
-            try {
-              await session.abortTransaction().catch(() => {});
-              session.endSession();
-            } catch (sessionError) {
-              console.error('Error cleaning up session:', sessionError);
-            }
-          }
+    //       // Abort transaction if it's active and hasn't been cleaned up yet
+    //       if (session) {
+    //         try {
+    //           await session.abortTransaction().catch(() => {});
+    //           session.endSession();
+    //         } catch (sessionError) {
+    //           console.error('Error cleaning up session:', sessionError);
+    //         }
+    //       }
           
-          return res.status(500).json({
-            status: 500,
-            success: false,
-            message: 'Error posting result',
-            error: error.message
-          });
-        }
-      },
+    //       return res.status(500).json({
+    //         status: 500,
+    //         success: false,
+    //         message: 'Error posting result',
+    //         error: error.message
+    //       });
+    //     }
+    //   },
 
     // Get hunter rankings for a bounty
     async getBountyRankings(req, res) {
@@ -2067,452 +2067,449 @@ const bountyController = {
                 error: error.message
             });
         }
-    }
+    },
 
-};
+
+async postBountyResult(req, res) {
+    try {
+        const { bountyId } = req.params;
+        const lordId = req.lord.id;
+
+        const bounty = await Bounty.findOne({
+            _id: bountyId,
+            createdBy: lordId
+        }).populate('participants.hunter');
+
+        // Check if result date has reached
+        const currentDate = new Date();
+        if (currentDate < bounty.resultTime) {
+            return res.status(400).json({
+                status: 400,
+                success: false,
+                message: 'Cannot post result before result date'
+            });
+        }
+
+
+        // Get reviewed submissions with stricter validation
+        const reviewedParticipants = bounty.participants.filter(
+            p => p.submission &&
+                p.submission.submittedAt &&
+                p.submission.review &&
+                typeof p.submission.review.totalScore === 'number' &&
+                p.submission.review.totalScore >= 0
+        );
+
+
+
+        if (reviewedParticipants.length === 0) {
+            return res.status(400).json({
+                status: 400,
+                success: false,
+                message: 'No submissions have been reviewed yet'
+            });
+        }
+
+        // Identify hunters who registered but did not submit
+        const nonSubmittingParticipants = bounty.participants.filter(
+            p => !p.submission || !p.submission.submittedAt
+        );
+
+        // Apply fouls to non-submitting participants
+        for (const participant of nonSubmittingParticipants) {
+            // Find the appropriate foul type
+            const noSubmissionFoul = await Foul.findOne({ name: "Registers but does not submit" });
+
+            if (noSubmissionFoul) {
+                // Find if this hunter has previous occurrences of this foul
+                const previousOccurrences = await FoulRecord.find({
+                    hunter: participant.hunter._id,
+                    foul: noSubmissionFoul._id
+                });
+
+                // Determine if this is a strike (second or later occurrence)
+                const isStrike = previousOccurrences.length > 0;
+                const occurrenceNumber = previousOccurrences.length + 1;
+
+                // Calculate XP penalty (625 XP)
+                const xpPenalty = 625;
+
+                // Create foul record
+                await FoulRecord.create({
+                    hunter: participant.hunter._id,
+                    foul: noSubmissionFoul._id,
+                    reason: `Registered for bounty "${bounty.title}" but did not submit work`,
+                    evidence: `Bounty ID: ${bountyId}`,
+                    xpPenalty,
+                    occurrenceNumber,
+                    isStrike,
+                    appliedBy: lordId, // Or you could use an admin ID if available
+                    relatedBounty: bountyId
+                });
+
+                // Update hunter's XP and strike count if applicable
+                if (isStrike) {
+                    await Hunter.findByIdAndUpdate(
+                        participant.hunter._id,
+                        {
+                            $inc: {
+                                xp: -xpPenalty,
+                                'strikes.count': 1
+                            }
+                        }
+                    );
+
+                    // Get updated hunter data to check tier after XP deduction
+                    const updatedHunter = await Hunter.findById(participant.hunter._id);
+                    
+                    // Check and update level tier if needed
+                    updatedHunter.updateLevel();
+                    await updatedHunter.save();
+
+                    // Check if this pushes hunter to 3 strikes (suspension threshold)
+                    if (updatedHunter.strikes.count >= 3) {
+                        // Calculate suspension period (14 days from now)
+                        const suspensionStartDate = new Date();
+                        const suspensionEndDate = new Date();
+                        suspensionEndDate.setDate(suspensionEndDate.getDate() + 14);
+
+                        // Update hunter with suspension
+                        await Hunter.findByIdAndUpdate(
+                            participant.hunter._id,
+                            {
+                                $set: {
+                                    'strikes.isCurrentlySuspended': true,
+                                    'strikes.suspensionEndDate': suspensionEndDate
+                                },
+                                $push: {
+                                    'strikes.suspensionHistory': {
+                                        startDate: suspensionStartDate,
+                                        endDate: suspensionEndDate,
+                                        reason: `Accumulated 3 strikes. Latest foul: No submission for bounty "${bounty.title}"`
+                                    }
+                                }
+                            }
+                        );
+
+                        // Create notification for suspension
+                        await notificationController.createNotification({
+                            hunterId: participant.hunter._id,
+                            title: 'Account Suspended',
+                            message: `Your account has been suspended for 14 days due to accumulating 3 strikes. You will be able to return on ${suspensionEndDate.toLocaleDateString()}.`,
+                            type: 'system'
+                        });
+                    }
+                } else {
+                    // Just deduct XP for first occurrence
+                    const updatedHunter = await Hunter.findByIdAndUpdate(
+                        participant.hunter._id,
+                        { $inc: { xp: -xpPenalty } },
+                        { new: true } // Return the updated document
+                    );
+                    
+                    // Check and update level tier if needed
+                    updatedHunter.updateLevel();
+                    await updatedHunter.save();
+                }
+
+                // Create notification for hunter
+                await notificationController.createNotification({
+                    hunterId: participant.hunter._id,
+                    title: 'Foul Received',
+                    message: `You have received a foul for registering but not submitting work for bounty "${bounty.title}". This has resulted in a penalty of ${xpPenalty} XP.${isStrike ? ' This foul counts as a strike.' : ''}`,
+                    type: 'system'
+                });
+            }
+        }
+
+        // Sort by score
+        const sortedParticipants = reviewedParticipants.sort(
+            (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
+        );
+
+        // Check if this is a non-profit bounty (reward prize is zero)
+        if (bounty.rewardPrize === 0) {
+            // Update nonProfitBounties count for all submitters
+            for (const participant of reviewedParticipants) {
+                await Hunter.findByIdAndUpdate(
+                    participant.hunter._id,
+                    {
+                        $inc: { 'achievements.nonProfitBounties.count': 1 },
+                        $push: { 'achievements.nonProfitBounties.bountyIds': bountyId }
+                    }
+                );
+
+                // Create a notification for the hunter
+                await notificationController.createNotification({
+                    hunterId: participant.hunter._id,
+                    title: 'Non-Profit Bounty Completed',
+                    message: `You've completed a non-profit bounty: "${bounty.title}". Thank you for your contribution!`,
+                    type: 'achievement',
+                    relatedItem: bountyId,
+                    itemModel: 'Bounty'
+                });
+            }
+
+            console.log(`Updated nonProfitBounties count for ${reviewedParticipants.length} hunters`);
+        }
+
+        // Update bounty status to completed
+        bounty.status = 'completed';
+
+        // Now update each hunter's profile based on their performance
+        for (let i = 0; i < sortedParticipants.length; i++) {
+            const participant = sortedParticipants[i];
+            const hunter = participant.hunter;
+            const rank = i + 1;
+
+            // Calculate XP earned based on review scores
+            const scores = [
+                participant.submission.review.adherenceToBrief,
+                participant.submission.review.conceptualThinking,
+                participant.submission.review.technicalExecution,
+                participant.submission.review.originalityCreativity,
+                participant.submission.review.documentation
+            ];
+
+            // Calculate XP using XP service
+            const xpService = require('../services/xpService');
+            const xpEarned = xpService.calculateReviewXP(scores);
+
+            // Update hunter's XP
+            const updatedHunter = await Hunter.findByIdAndUpdate(
+                hunter._id,
+                { $inc: { xp: xpEarned } },
+                { new: true } // Return the updated document
+            );
+            
+            // Check and update level tier if needed
+            updatedHunter.updateLevel();
+            await updatedHunter.save();
+            
+            // Store original tier and rank for notification
+            const originalTier = hunter.level.tier;
+            const originalRank = hunter.level.rank;
+            const newTier = updatedHunter.level.tier;
+            const newRank = updatedHunter.level.rank;
+            
+            // Send notification if tier or rank changed
+            if (originalTier !== newTier || originalRank !== newRank) {
+                await notificationController.createNotification({
+                    hunterId: hunter._id,
+                    title: 'Level Up!',
+                    message: `Congratulations! You've leveled up to ${newTier} ${newRank} after completing the bounty "${bounty.title}".`,
+                    type: 'achievement'
+                });
+            }
+
+            // Update hunter's achievements based on performance
+            if (rank === 1) {
+                // Winner
+                await Hunter.findByIdAndUpdate(
+                    hunter._id,
+                    {
+                        $inc: { 'achievements.bountiesWon.count': 1 },
+                        $push: { 'achievements.bountiesWon.bountyIds': bountyId }
+                    }
+                );
+
+                // Give a resetFoul pass to the winner
+                await Hunter.findByIdAndUpdate(
+                    hunter._id,
+                    { $inc: { 'passes.resetFoul.count': 1 } }
+                );
+
+                // Increment consecutive wins for booster pass
+                const updatedHunterWins = await Hunter.findByIdAndUpdate(
+                    hunter._id,
+                    { $inc: { 'passes.consecutiveWins': 1 } },
+                    { new: true }
+                );
+
+                // If they reached 2 consecutive wins, give a booster pass
+                if (updatedHunterWins.passes.consecutiveWins >= 2) {
+                    await Hunter.findByIdAndUpdate(
+                        hunter._id,
+                        {
+                            $inc: { 'passes.booster.count': 1 },
+                            $set: { 'passes.consecutiveWins': 0 } // Reset counter
+                        }
+                    );
+                }
+            } else {
+                // Not winner, reset consecutive wins
+                await Hunter.findByIdAndUpdate(
+                    hunter._id,
+                    { $set: { 'passes.consecutiveWins': 0 } }
+                );
+
+                // If last place
+                if (rank === sortedParticipants.length) {
+                    await Hunter.findByIdAndUpdate(
+                        hunter._id,
+                        {
+                            $inc: { 'achievements.lastPlaceFinishes.count': 1 },
+                            $push: { 'achievements.lastPlaceFinishes.bountyIds': bountyId }
+                        }
+                    );
+                }
+            }
+
+            // Calculate and update performance score
+            if (bounty.participants.length > 1) {  // Only if competitive
+                const performanceCalculator = require('../utils/performanceCalculator');
+                await performanceCalculator.calculatePerformanceScore(
+                    hunter._id.toString(),
+                    bountyId,
+                    rank,
+                    xpEarned
+                );
+            }
+
+            // Create wallet transaction for winner
+            if (rank === 1 && bounty.rewardPrize > 0) {
+                // Add the prize money to the winner's wallet
+                // Update total earnings separately
+                await Hunter.findByIdAndUpdate(
+                    hunter._id,
+                    { $inc: { totalEarnings: bounty.rewardPrize } }
+                );
+                console.log(`Updated totalEarnings for hunter ${hunter._id} with amount ${bounty.rewardPrize}`);
+
+                await transactionService.createTransaction({
+                    hunterId: hunter._id,
+                    amount: bounty.rewardPrize,
+                    type: 'credit',
+                    category: 'bounty',
+                    description: `Winner reward for bounty: ${bounty.title}`,
+                    reference: bountyId,
+                    referenceModel: 'Bounty',
+                    initiatedBy: {
+                        id: lordId,
+                        role: 'Lord'
+                    },
+                    metaData: {
+                        rank: 1,
+                        totalParticipants: sortedParticipants.length
+                    }
+                });
+
+                // Add a notification about the wallet credit
+                await notificationController.createNotification({
+                    hunterId: hunter._id,
+                    title: 'Reward Received',
+                    message: `You've received ${bounty.rewardPrize} for winning the bounty "${bounty.title}"`,
+                    type: 'bounty',
+                    relatedItem: bountyId,
+                    itemModel: 'Bounty'
+                });
+            }
+
+            // Update review status to published
+            participant.submission.review.reviewStatus = 'published';
+
+            // Create notification for hunter
+            await notificationController.createNotification({
+                hunterId: hunter._id,
+                title: 'Bounty Results Published',
+                message: `Results for "${bounty.title}" are now available. You ranked #${rank} out of ${sortedParticipants.length} hunters.`,
+                type: 'bounty',
+                relatedItem: bountyId,
+                itemModel: 'Bounty'
+            });
+        }
+
+        // Save bounty with updated review statuses
+        await bounty.save();
+
+        // Award passes (assuming this also exists in your system)
+        await passController.awardPassesForBounty(bountyId);
+
+        // Create the result rankings data
+        const resultRankings = sortedParticipants.map((participant, index) => {
+            const rank = index + 1;
+            const hunter = participant.hunter._id;
+            const score = participant.submission.review.totalScore;
+
+            // Get scores
+            const scores = {
+                adherenceToBrief: participant.submission.review.adherenceToBrief,
+                conceptualThinking: participant.submission.review.conceptualThinking,
+                technicalExecution: participant.submission.review.technicalExecution,
+                originalityCreativity: participant.submission.review.originalityCreativity,
+                documentation: participant.submission.review.documentation
+            };
+
+            // Calculate XP
+            const xpService = require('../services/xpService');
+            const xpEarned = xpService.calculateReviewXP([
+                scores.adherenceToBrief,
+                scores.conceptualThinking,
+                scores.technicalExecution,
+                scores.originalityCreativity,
+                scores.documentation
+            ]);
+
+            // Calculate reward (only for rank 1)
+            const rewardEarned = rank === 1 ? bounty.rewardPrize : 0;
+
+            return {
+                hunter,
+                rank,
+                score,
+                scores,
+                xpEarned,
+                rewardEarned
+            };
+        });
+
+        // Track non-submitters
+        const nonSubmitters = nonSubmittingParticipants.map(participant => {
+            return {
+                hunter: participant.hunter._id,
+                foulApplied: true,
+            };
+        });
+
+        // Create the bounty result
+        const bountyResult = await BountyResult.create({
+            bounty: bountyId,
+            postedBy: lordId,
+            rankings: resultRankings,
+            nonSubmitters
+        });
+
+        // Update the bounty with the result ID
+        bounty.resultId = bountyResult._id;
+        await bounty.save();
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Bounty result posted successfully',
+            data: {
+                bountyTitle: bounty.title,
+                totalParticipants: bounty.participants.length,
+                reviewedParticipants: reviewedParticipants.length,
+                nonSubmittingParticipants: nonSubmittingParticipants.length,
+                foulsApplied: nonSubmittingParticipants.length,
+                rankings: sortedParticipants.map((p, index) => ({
+                    rank: index + 1,
+                    hunter: p.hunter.username,
+                    score: p.submission.review.totalScore
+                }))
+            }
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error posting result',
+            error: error.message
+        });
+    }
+}
+}
 
 module.exports = bountyController;
-
-
-
-
-// async postBountyResult(req, res) {
-//     try {
-//         const { bountyId } = req.params;
-//         const lordId = req.lord.id;
-
-//         const bounty = await Bounty.findOne({
-//             _id: bountyId,
-//             createdBy: lordId
-//         }).populate('participants.hunter');
-
-//         // Check if result date has reached
-//         const currentDate = new Date();
-//         if (currentDate < bounty.resultTime) {
-//             return res.status(400).json({
-//                 status: 400,
-//                 success: false,
-//                 message: 'Cannot post result before result date'
-//             });
-//         }
-
-
-//         // Get reviewed submissions with stricter validation
-//         const reviewedParticipants = bounty.participants.filter(
-//             p => p.submission &&
-//                 p.submission.submittedAt &&
-//                 p.submission.review &&
-//                 typeof p.submission.review.totalScore === 'number' &&
-//                 p.submission.review.totalScore >= 0
-//         );
-
-
-
-//         if (reviewedParticipants.length === 0) {
-//             return res.status(400).json({
-//                 status: 400,
-//                 success: false,
-//                 message: 'No submissions have been reviewed yet'
-//             });
-//         }
-
-//         // Identify hunters who registered but did not submit
-//         const nonSubmittingParticipants = bounty.participants.filter(
-//             p => !p.submission || !p.submission.submittedAt
-//         );
-
-//         // Apply fouls to non-submitting participants
-//         for (const participant of nonSubmittingParticipants) {
-//             // Find the appropriate foul type
-//             const noSubmissionFoul = await Foul.findOne({ name: "Registers but does not submit" });
-
-//             if (noSubmissionFoul) {
-//                 // Find if this hunter has previous occurrences of this foul
-//                 const previousOccurrences = await FoulRecord.find({
-//                     hunter: participant.hunter._id,
-//                     foul: noSubmissionFoul._id
-//                 });
-
-//                 // Determine if this is a strike (second or later occurrence)
-//                 const isStrike = previousOccurrences.length > 0;
-//                 const occurrenceNumber = previousOccurrences.length + 1;
-
-//                 // Calculate XP penalty (625 XP)
-//                 const xpPenalty = 625;
-
-//                 // Create foul record
-//                 await FoulRecord.create({
-//                     hunter: participant.hunter._id,
-//                     foul: noSubmissionFoul._id,
-//                     reason: `Registered for bounty "${bounty.title}" but did not submit work`,
-//                     evidence: `Bounty ID: ${bountyId}`,
-//                     xpPenalty,
-//                     occurrenceNumber,
-//                     isStrike,
-//                     appliedBy: lordId, // Or you could use an admin ID if available
-//                     relatedBounty: bountyId
-//                 });
-
-//                 // Update hunter's XP and strike count if applicable
-//                 if (isStrike) {
-//                     await Hunter.findByIdAndUpdate(
-//                         participant.hunter._id,
-//                         {
-//                             $inc: {
-//                                 xp: -xpPenalty,
-//                                 'strikes.count': 1
-//                             }
-//                         }
-//                     );
-
-//                     // Get updated hunter data to check tier after XP deduction
-//                     const updatedHunter = await Hunter.findById(participant.hunter._id);
-                    
-//                     // Check and update level tier if needed
-//                     updatedHunter.updateLevel();
-//                     await updatedHunter.save();
-
-//                     // Check if this pushes hunter to 3 strikes (suspension threshold)
-//                     if (updatedHunter.strikes.count >= 3) {
-//                         // Calculate suspension period (14 days from now)
-//                         const suspensionStartDate = new Date();
-//                         const suspensionEndDate = new Date();
-//                         suspensionEndDate.setDate(suspensionEndDate.getDate() + 14);
-
-//                         // Update hunter with suspension
-//                         await Hunter.findByIdAndUpdate(
-//                             participant.hunter._id,
-//                             {
-//                                 $set: {
-//                                     'strikes.isCurrentlySuspended': true,
-//                                     'strikes.suspensionEndDate': suspensionEndDate
-//                                 },
-//                                 $push: {
-//                                     'strikes.suspensionHistory': {
-//                                         startDate: suspensionStartDate,
-//                                         endDate: suspensionEndDate,
-//                                         reason: `Accumulated 3 strikes. Latest foul: No submission for bounty "${bounty.title}"`
-//                                     }
-//                                 }
-//                             }
-//                         );
-
-//                         // Create notification for suspension
-//                         await notificationController.createNotification({
-//                             hunterId: participant.hunter._id,
-//                             title: 'Account Suspended',
-//                             message: `Your account has been suspended for 14 days due to accumulating 3 strikes. You will be able to return on ${suspensionEndDate.toLocaleDateString()}.`,
-//                             type: 'system'
-//                         });
-//                     }
-//                 } else {
-//                     // Just deduct XP for first occurrence
-//                     const updatedHunter = await Hunter.findByIdAndUpdate(
-//                         participant.hunter._id,
-//                         { $inc: { xp: -xpPenalty } },
-//                         { new: true } // Return the updated document
-//                     );
-                    
-//                     // Check and update level tier if needed
-//                     updatedHunter.updateLevel();
-//                     await updatedHunter.save();
-//                 }
-
-//                 // Create notification for hunter
-//                 await notificationController.createNotification({
-//                     hunterId: participant.hunter._id,
-//                     title: 'Foul Received',
-//                     message: `You have received a foul for registering but not submitting work for bounty "${bounty.title}". This has resulted in a penalty of ${xpPenalty} XP.${isStrike ? ' This foul counts as a strike.' : ''}`,
-//                     type: 'system'
-//                 });
-//             }
-//         }
-
-//         // Sort by score
-//         const sortedParticipants = reviewedParticipants.sort(
-//             (a, b) => b.submission.review.totalScore - a.submission.review.totalScore
-//         );
-
-//         // Check if this is a non-profit bounty (reward prize is zero)
-//         if (bounty.rewardPrize === 0) {
-//             // Update nonProfitBounties count for all submitters
-//             for (const participant of reviewedParticipants) {
-//                 await Hunter.findByIdAndUpdate(
-//                     participant.hunter._id,
-//                     {
-//                         $inc: { 'achievements.nonProfitBounties.count': 1 },
-//                         $push: { 'achievements.nonProfitBounties.bountyIds': bountyId }
-//                     }
-//                 );
-
-//                 // Create a notification for the hunter
-//                 await notificationController.createNotification({
-//                     hunterId: participant.hunter._id,
-//                     title: 'Non-Profit Bounty Completed',
-//                     message: `You've completed a non-profit bounty: "${bounty.title}". Thank you for your contribution!`,
-//                     type: 'achievement',
-//                     relatedItem: bountyId,
-//                     itemModel: 'Bounty'
-//                 });
-//             }
-
-//             console.log(`Updated nonProfitBounties count for ${reviewedParticipants.length} hunters`);
-//         }
-
-//         // Update bounty status to completed
-//         bounty.status = 'completed';
-
-//         // Now update each hunter's profile based on their performance
-//         for (let i = 0; i < sortedParticipants.length; i++) {
-//             const participant = sortedParticipants[i];
-//             const hunter = participant.hunter;
-//             const rank = i + 1;
-
-//             // Calculate XP earned based on review scores
-//             const scores = [
-//                 participant.submission.review.adherenceToBrief,
-//                 participant.submission.review.conceptualThinking,
-//                 participant.submission.review.technicalExecution,
-//                 participant.submission.review.originalityCreativity,
-//                 participant.submission.review.documentation
-//             ];
-
-//             // Calculate XP using XP service
-//             const xpService = require('../services/xpService');
-//             const xpEarned = xpService.calculateReviewXP(scores);
-
-//             // Update hunter's XP
-//             const updatedHunter = await Hunter.findByIdAndUpdate(
-//                 hunter._id,
-//                 { $inc: { xp: xpEarned } },
-//                 { new: true } // Return the updated document
-//             );
-            
-//             // Check and update level tier if needed
-//             updatedHunter.updateLevel();
-//             await updatedHunter.save();
-            
-//             // Store original tier and rank for notification
-//             const originalTier = hunter.level.tier;
-//             const originalRank = hunter.level.rank;
-//             const newTier = updatedHunter.level.tier;
-//             const newRank = updatedHunter.level.rank;
-            
-//             // Send notification if tier or rank changed
-//             if (originalTier !== newTier || originalRank !== newRank) {
-//                 await notificationController.createNotification({
-//                     hunterId: hunter._id,
-//                     title: 'Level Up!',
-//                     message: `Congratulations! You've leveled up to ${newTier} ${newRank} after completing the bounty "${bounty.title}".`,
-//                     type: 'achievement'
-//                 });
-//             }
-
-//             // Update hunter's achievements based on performance
-//             if (rank === 1) {
-//                 // Winner
-//                 await Hunter.findByIdAndUpdate(
-//                     hunter._id,
-//                     {
-//                         $inc: { 'achievements.bountiesWon.count': 1 },
-//                         $push: { 'achievements.bountiesWon.bountyIds': bountyId }
-//                     }
-//                 );
-
-//                 // Give a resetFoul pass to the winner
-//                 await Hunter.findByIdAndUpdate(
-//                     hunter._id,
-//                     { $inc: { 'passes.resetFoul.count': 1 } }
-//                 );
-
-//                 // Increment consecutive wins for booster pass
-//                 const updatedHunterWins = await Hunter.findByIdAndUpdate(
-//                     hunter._id,
-//                     { $inc: { 'passes.consecutiveWins': 1 } },
-//                     { new: true }
-//                 );
-
-//                 // If they reached 2 consecutive wins, give a booster pass
-//                 if (updatedHunterWins.passes.consecutiveWins >= 2) {
-//                     await Hunter.findByIdAndUpdate(
-//                         hunter._id,
-//                         {
-//                             $inc: { 'passes.booster.count': 1 },
-//                             $set: { 'passes.consecutiveWins': 0 } // Reset counter
-//                         }
-//                     );
-//                 }
-//             } else {
-//                 // Not winner, reset consecutive wins
-//                 await Hunter.findByIdAndUpdate(
-//                     hunter._id,
-//                     { $set: { 'passes.consecutiveWins': 0 } }
-//                 );
-
-//                 // If last place
-//                 if (rank === sortedParticipants.length) {
-//                     await Hunter.findByIdAndUpdate(
-//                         hunter._id,
-//                         {
-//                             $inc: { 'achievements.lastPlaceFinishes.count': 1 },
-//                             $push: { 'achievements.lastPlaceFinishes.bountyIds': bountyId }
-//                         }
-//                     );
-//                 }
-//             }
-
-//             // Calculate and update performance score
-//             if (bounty.participants.length > 1) {  // Only if competitive
-//                 const performanceCalculator = require('../utils/performanceCalculator');
-//                 await performanceCalculator.calculatePerformanceScore(
-//                     hunter._id.toString(),
-//                     bountyId,
-//                     rank,
-//                     xpEarned
-//                 );
-//             }
-
-//             // Create wallet transaction for winner
-//             if (rank === 1 && bounty.rewardPrize > 0) {
-//                 // Add the prize money to the winner's wallet
-//                 // Update total earnings separately
-//                 await Hunter.findByIdAndUpdate(
-//                     hunter._id,
-//                     { $inc: { totalEarnings: bounty.rewardPrize } }
-//                 );
-//                 console.log(`Updated totalEarnings for hunter ${hunter._id} with amount ${bounty.rewardPrize}`);
-
-//                 await transactionService.createTransaction({
-//                     hunterId: hunter._id,
-//                     amount: bounty.rewardPrize,
-//                     type: 'credit',
-//                     category: 'bounty',
-//                     description: `Winner reward for bounty: ${bounty.title}`,
-//                     reference: bountyId,
-//                     referenceModel: 'Bounty',
-//                     initiatedBy: {
-//                         id: lordId,
-//                         role: 'Lord'
-//                     },
-//                     metaData: {
-//                         rank: 1,
-//                         totalParticipants: sortedParticipants.length
-//                     }
-//                 });
-
-//                 // Add a notification about the wallet credit
-//                 await notificationController.createNotification({
-//                     hunterId: hunter._id,
-//                     title: 'Reward Received',
-//                     message: `You've received ${bounty.rewardPrize} for winning the bounty "${bounty.title}"`,
-//                     type: 'bounty',
-//                     relatedItem: bountyId,
-//                     itemModel: 'Bounty'
-//                 });
-//             }
-
-//             // Update review status to published
-//             participant.submission.review.reviewStatus = 'published';
-
-//             // Create notification for hunter
-//             await notificationController.createNotification({
-//                 hunterId: hunter._id,
-//                 title: 'Bounty Results Published',
-//                 message: `Results for "${bounty.title}" are now available. You ranked #${rank} out of ${sortedParticipants.length} hunters.`,
-//                 type: 'bounty',
-//                 relatedItem: bountyId,
-//                 itemModel: 'Bounty'
-//             });
-//         }
-
-//         // Save bounty with updated review statuses
-//         await bounty.save();
-
-//         // Award passes (assuming this also exists in your system)
-//         await passController.awardPassesForBounty(bountyId);
-
-//         // Create the result rankings data
-//         const resultRankings = sortedParticipants.map((participant, index) => {
-//             const rank = index + 1;
-//             const hunter = participant.hunter._id;
-//             const score = participant.submission.review.totalScore;
-
-//             // Get scores
-//             const scores = {
-//                 adherenceToBrief: participant.submission.review.adherenceToBrief,
-//                 conceptualThinking: participant.submission.review.conceptualThinking,
-//                 technicalExecution: participant.submission.review.technicalExecution,
-//                 originalityCreativity: participant.submission.review.originalityCreativity,
-//                 documentation: participant.submission.review.documentation
-//             };
-
-//             // Calculate XP
-//             const xpService = require('../services/xpService');
-//             const xpEarned = xpService.calculateReviewXP([
-//                 scores.adherenceToBrief,
-//                 scores.conceptualThinking,
-//                 scores.technicalExecution,
-//                 scores.originalityCreativity,
-//                 scores.documentation
-//             ]);
-
-//             // Calculate reward (only for rank 1)
-//             const rewardEarned = rank === 1 ? bounty.rewardPrize : 0;
-
-//             return {
-//                 hunter,
-//                 rank,
-//                 score,
-//                 scores,
-//                 xpEarned,
-//                 rewardEarned
-//             };
-//         });
-
-//         // Track non-submitters
-//         const nonSubmitters = nonSubmittingParticipants.map(participant => {
-//             return {
-//                 hunter: participant.hunter._id,
-//                 foulApplied: true,
-//             };
-//         });
-
-//         // Create the bounty result
-//         const bountyResult = await BountyResult.create({
-//             bounty: bountyId,
-//             postedBy: lordId,
-//             rankings: resultRankings,
-//             nonSubmitters
-//         });
-
-//         // Update the bounty with the result ID
-//         bounty.resultId = bountyResult._id;
-//         await bounty.save();
-
-//         return res.status(200).json({
-//             status: 200,
-//             success: true,
-//             message: 'Bounty result posted successfully',
-//             data: {
-//                 bountyTitle: bounty.title,
-//                 totalParticipants: bounty.participants.length,
-//                 reviewedParticipants: reviewedParticipants.length,
-//                 nonSubmittingParticipants: nonSubmittingParticipants.length,
-//                 foulsApplied: nonSubmittingParticipants.length,
-//                 rankings: sortedParticipants.map((p, index) => ({
-//                     rank: index + 1,
-//                     hunter: p.hunter.username,
-//                     score: p.submission.review.totalScore
-//                 }))
-//             }
-//         });
-
-//     } catch (error) {
-//         return res.status(500).json({
-//             status: 500,
-//             success: false,
-//             message: 'Error posting result',
-//             error: error.message
-//         });
-//     }
-// },

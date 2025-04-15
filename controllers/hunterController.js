@@ -1327,9 +1327,12 @@ Bounty Hunter Platform Team`
   
       // Execute queries in parallel
       const [foulRecords, hunter] = await Promise.all([
-        FoulRecord.find({ hunter: hunterId })
-          .select('foul appliedAt')
-          .populate('foul', 'name description')
+        FoulRecord.find({ 
+          hunter: hunterId,
+          isCleared: { $ne: true } // Only get fouls that haven't been cleared
+        })
+          .select('foul appliedAt xpPenalty isStrike reason')
+          .populate('foul', 'name description severity')
           .sort({ appliedAt: -1 })
           .lean(),
           
@@ -1357,22 +1360,24 @@ Bounty Hunter Platform Team`
         }
       );
   
-      // Format the data - only including requested fields: id, name, description, appliedAt
+      // Format the data - only including requested fields
       const fouls = foulRecords.map(record => ({
         id: record._id,
         name: record.foul?.name || 'Unknown Foul',
         description: record.foul?.description || '',
+        reason: record.reason,
+        isStrike: record.isStrike || false,
+        xpPenalty: record.xpPenalty || 0,
         appliedAt: record.appliedAt
       }));
   
       return res.status(200).json({
         status: 200,
         success: true,
-        message: 'Foul records retrieved successfully',
+        message: 'Active foul records retrieved successfully',
         data: {
           totalFouls: foulRecords.length,
           totalXpPenalty,
-      
           strikes: {
             count: hunter.strikes.count || 0,
             isCurrentlySuspended: hunter.strikes.isCurrentlySuspended || false,
