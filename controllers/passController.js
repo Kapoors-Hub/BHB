@@ -754,6 +754,151 @@ async awardPassToHunter(req, res) {
  * Controller function for hunters to use Clean Slate pass
  * to remove a foul from their record
  */
+// async useCleanSlatePass(req, res) {
+//     // Start a session outside the try/catch to ensure we can access it in all code blocks
+//     const session = await mongoose.startSession();
+    
+//     try {
+//       const hunterId = req.hunter.id;
+//       const { foulRecordId } = req.params;
+      
+//       // Validate foul record exists and belongs to this hunter
+//       const foulRecord = await FoulRecord.findOne({
+//         _id: foulRecordId,
+//         hunter: hunterId
+//       });
+      
+//       if (!foulRecord) {
+//         return res.status(404).json({
+//           status: 404,
+//           success: false,
+//           message: 'Foul record not found or does not belong to you'
+//         });
+//       }
+      
+//       // Check if the foul is already cleared
+//       if (foulRecord.isCleared) {
+//         return res.status(400).json({
+//           status: 400,
+//           success: false,
+//           message: 'This foul has already been cleared'
+//         });
+//       }
+      
+//       // Check if hunter has a clean slate pass to use (new system)
+//       const hunterPass = await HunterPass.findOne({
+//         hunter: hunterId,
+//         passType: 'cleanSlate'
+//       });
+      
+//     //   const legacyHunter = await Hunter.findById(hunterId);
+      
+//       // Check available passes in both systems
+//     //   const hasLegacyPass = legacyHunter && legacyHunter.passes.resetFoul.count > 0;
+//       const hasNewPass = hunterPass && hunterPass.count > 0;
+      
+//       if (!hasNewPass) {
+//         return res.status(400).json({
+//           status: 400,
+//           success: false,
+//           message: 'You do not have any Clean Slate passes to use'
+//         });
+//       }
+      
+//       // Begin transaction
+//       session.startTransaction();
+      
+//       // Mark the foul as cleared
+//       foulRecord.isCleared = true;
+//       foulRecord.clearedAt = new Date();
+//       foulRecord.clearedBy = {
+//         id: hunterId,
+//         role: 'Hunter'
+//       };
+//       await foulRecord.save({ session });
+      
+//       // If the foul had a strike, reduce strike count
+//       if (foulRecord.isStrike) {
+//         await Hunter.findByIdAndUpdate(
+//           hunterId,
+//           { $inc: { 'strikes.count': -1 } },
+//           { session }
+//         );
+//       }
+      
+//       // Deduct pass from hunter's inventory (both systems)
+//       if (hasNewPass) {
+//         await HunterPass.updateOne(
+//           { _id: hunterPass._id },
+//           { 
+//             $inc: { count: -1 },
+//             $set: { lastUpdated: new Date() }
+//           },
+//           { session }
+//         );
+//       }
+      
+//     //   if (hasLegacyPass) {
+//     //     await Hunter.findByIdAndUpdate(
+//     //       hunterId,
+//     //       { $inc: { 'passes.resetFoul.count': -1 } },
+//     //       { session }
+//     //     );
+//     //   }
+      
+//       // Record the pass usage
+//       await PassUsage.create([{
+//         hunter: hunterId,
+//         passType: 'cleanSlate',
+//         usedAt: new Date(),
+//         foulRecord: foulRecordId,
+//         effect: {
+//           foulCleared: true
+//         }
+//       }], { session });
+      
+//       // Commit the transaction
+//       await session.commitTransaction();
+      
+//       // Create notification about the pass usage
+//       await notificationController.createNotification({
+//         hunterId: hunterId,
+//         title: 'Clean Slate Pass Used',
+//         message: `You've successfully used a Clean Slate Pass to clear a foul from your record.`,
+//         type: 'system'
+//       });
+      
+//       return res.status(200).json({
+//         status: 200,
+//         success: true,
+//         message: 'Clean Slate Pass used successfully to clear foul',
+//         data: {
+//           foulRecord: {
+//             id: foulRecord._id,
+//             reason: foulRecord.reason,
+//             clearedAt: foulRecord.clearedAt
+//           },
+//           remainingPasses: (hasNewPass ? hunterPass.count : legacyHunter.passes.resetFoul.count) - 1
+//         }
+//       });
+//     } catch (error) {
+//       // If an error occurs during the transaction, abort it
+//       if (session.inTransaction()) {
+//         await session.abortTransaction();
+//       }
+      
+//       return res.status(500).json({
+//         status: 500,
+//         success: false,
+//         message: 'Error using Clean Slate Pass',
+//         error: error.message
+//       });
+//     } finally {
+//       // Always end the session
+//       session.endSession();
+//     }
+//   },
+
 async useCleanSlatePass(req, res) {
     // Start a session outside the try/catch to ensure we can access it in all code blocks
     const session = await mongoose.startSession();
@@ -785,19 +930,16 @@ async useCleanSlatePass(req, res) {
         });
       }
       
-      // Check if hunter has a clean slate pass to use (new system)
+      // Check if hunter has a clean slate pass to use
       const hunterPass = await HunterPass.findOne({
         hunter: hunterId,
         passType: 'cleanSlate'
       });
       
-    //   const legacyHunter = await Hunter.findById(hunterId);
+      // Check available passes
+      const hasPass = hunterPass && hunterPass.count > 0;
       
-      // Check available passes in both systems
-    //   const hasLegacyPass = legacyHunter && legacyHunter.passes.resetFoul.count > 0;
-      const hasNewPass = hunterPass && hunterPass.count > 0;
-      
-      if (!hasNewPass) {
+      if (!hasPass) {
         return res.status(400).json({
           status: 400,
           success: false,
@@ -826,25 +968,15 @@ async useCleanSlatePass(req, res) {
         );
       }
       
-      // Deduct pass from hunter's inventory (both systems)
-      if (hasNewPass) {
-        await HunterPass.updateOne(
-          { _id: hunterPass._id },
-          { 
-            $inc: { count: -1 },
-            $set: { lastUpdated: new Date() }
-          },
-          { session }
-        );
-      }
-      
-    //   if (hasLegacyPass) {
-    //     await Hunter.findByIdAndUpdate(
-    //       hunterId,
-    //       { $inc: { 'passes.resetFoul.count': -1 } },
-    //       { session }
-    //     );
-    //   }
+      // Deduct pass from hunter's inventory
+      await HunterPass.updateOne(
+        { _id: hunterPass._id },
+        { 
+          $inc: { count: -1 },
+          $set: { lastUpdated: new Date() }
+        },
+        { session }
+      );
       
       // Record the pass usage
       await PassUsage.create([{
@@ -878,7 +1010,7 @@ async useCleanSlatePass(req, res) {
             reason: foulRecord.reason,
             clearedAt: foulRecord.clearedAt
           },
-          remainingPasses: (hasNewPass ? hunterPass.count : legacyHunter.passes.resetFoul.count) - 1
+          remainingPasses: hunterPass.count - 1
         }
       });
     } catch (error) {

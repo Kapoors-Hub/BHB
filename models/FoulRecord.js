@@ -41,6 +41,24 @@ const foulRecordSchema = new mongoose.Schema({
     relatedBounty: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Bounty'
+    },
+    // New fields for tracking cleared status
+    isCleared: {
+        type: Boolean,
+        default: false
+    },
+    clearedAt: {
+        type: Date
+    },
+    clearedBy: {
+        id: {
+            type: mongoose.Schema.Types.ObjectId,
+            refPath: 'clearedBy.role'
+        },
+        role: {
+            type: String,
+            enum: ['Admin', 'Hunter']
+        }
     }
 });
 
