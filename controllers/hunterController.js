@@ -361,29 +361,61 @@ const hunterController = {
 
   // Verify OTP
   async verifyOTP(req, res) {
-    const { email, otp, personalEmail, graduationDate } = req.body;
-
-    const hunter = await Hunter.findOne({ collegeEmail: email });
-    if (!hunter) {
-      throw ErrorHandler.notFound('Hunter not found');
+    try {
+      const { email, otp, personalEmail, graduationDate } = req.body;
+      
+      const hunter = await Hunter.findOne({ collegeEmail: email });
+      
+      if (!hunter) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter not found',
+          error: 'No account exists with this college email address'
+        });
+      }
+      
+      if (!hunter.otp || !hunter.otp.code || hunter.otp.expiresAt < new Date()) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'OTP is invalid or expired',
+          error: 'The OTP has expired or was never generated. Please request a new one.'
+        });
+      }
+      
+      if (hunter.otp.code !== otp) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'Invalid OTP',
+          error: 'The OTP you entered is incorrect. Please check and try again.'
+        });
+      }
+      
+      // OTP is valid, update hunter status
+      hunter.isVerified = true;
+      hunter.status = 'verified';
+      hunter.otp = undefined;
+      await hunter.save();
+      
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'OTP verified successfully',
+        data: hunter
+      });
+      
+    } catch (error) {
+      console.error('Error verifying OTP:', error);
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error verifying OTP',
+        error: error.message
+      });
     }
-
-    if (!hunter.otp || !hunter.otp.code || hunter.otp.expiresAt < new Date()) {
-      throw ErrorHandler.badRequest('OTP is invalid or expired');
-    }
-
-    if (hunter.otp.code !== otp) {
-      throw ErrorHandler.badRequest('Invalid OTP');
-    }
-
-    hunter.isVerified = true;
-    hunter.status = 'verified';
-    hunter.otp = undefined;
-    await hunter.save();
-
-    return res.status(200).json(Success.ok('OTP verified successfully', hunter));
   },
-
   // Get hunter status
   async getStatus(req, res) {
     const { email } = req.params;
