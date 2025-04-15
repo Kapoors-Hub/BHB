@@ -791,13 +791,13 @@ async useCleanSlatePass(req, res) {
         passType: 'cleanSlate'
       });
       
-      const legacyHunter = await Hunter.findById(hunterId);
+    //   const legacyHunter = await Hunter.findById(hunterId);
       
       // Check available passes in both systems
-      const hasLegacyPass = legacyHunter && legacyHunter.passes.resetFoul.count > 0;
+    //   const hasLegacyPass = legacyHunter && legacyHunter.passes.resetFoul.count > 0;
       const hasNewPass = hunterPass && hunterPass.count > 0;
       
-      if (!hasLegacyPass && !hasNewPass) {
+      if (!hasNewPass) {
         return res.status(400).json({
           status: 400,
           success: false,
@@ -838,13 +838,13 @@ async useCleanSlatePass(req, res) {
         );
       }
       
-      if (hasLegacyPass) {
-        await Hunter.findByIdAndUpdate(
-          hunterId,
-          { $inc: { 'passes.resetFoul.count': -1 } },
-          { session }
-        );
-      }
+    //   if (hasLegacyPass) {
+    //     await Hunter.findByIdAndUpdate(
+    //       hunterId,
+    //       { $inc: { 'passes.resetFoul.count': -1 } },
+    //       { session }
+    //     );
+    //   }
       
       // Record the pass usage
       await PassUsage.create([{
