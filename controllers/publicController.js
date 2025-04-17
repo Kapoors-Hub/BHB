@@ -121,7 +121,7 @@ const publicController = {
       const { hunterId } = req.params;
       
       // Run queries in parallel for efficiency
-      const [hunter, xpRanking] = await Promise.all([
+      const [hunter, xpRanking, bountyStats] = await Promise.all([
         // Query 1: Get hunter profile data
         Hunter.findById(hunterId)
           .populate('badges.badge')
@@ -153,6 +153,17 @@ const publicController = {
                   }
                 }
               }
+            }
+          }
+        ]),
+        
+        // Query 3: Get bounty stats for completion rate calculation
+        Bounty.aggregate([
+          { $match: { 'participants.hunter': new mongoose.Types.ObjectId(hunterId) } },
+          {
+            $group: {
+              _id: '$status',
+              count: { $sum: 1 }
             }
           }
         ])
@@ -188,6 +199,27 @@ const publicController = {
           xpRank = hunterRankInfo.rank;
         }
       }
+      
+      // Parse the bounty stats results
+      const bountyCountByStatus = {
+        active: 0,
+        completed: 0,
+        total: 0
+      };
+  
+      bountyStats.forEach(stat => {
+        if (stat._id === 'active') {
+          bountyCountByStatus.active = stat.count;
+        } else if (stat._id === 'completed') {
+          bountyCountByStatus.completed = stat.count;
+        }
+        bountyCountByStatus.total += stat.count;
+      });
+  
+      // Calculate completion rate
+      const completionRate = bountyCountByStatus.total > 0
+        ? Math.round((bountyCountByStatus.completed / bountyCountByStatus.total) * 100)
+        : 0;
       
       // Format active titles
       const now = new Date();
@@ -230,7 +262,8 @@ const publicController = {
           xpNeeded: Math.max(0, nextThreshold - hunter.xp),
           performance: {
             score: hunter.performance.score,
-            totalBountiesCalculated: hunter.performance.totalBountiesCalculated
+            totalBountiesCalculated: hunter.performance.totalBountiesCalculated,
+            completionRate: completionRate // Add completion rate here
           },
           // Add XP ranking information
           ranking: {
@@ -265,6 +298,12 @@ const publicController = {
           bountiesWon: hunter.achievements.bountiesWon.count,
           firstSubmissions: hunter.achievements.firstSubmissions.count,
           nonProfitBounties: hunter.achievements.nonProfitBounties.count
+        },
+        stats: { // New stats section with bounty information
+          activeBounties: bountyCountByStatus.active,
+          totalBounties: bountyCountByStatus.total,
+          completedBounties: bountyCountByStatus.completed,
+          completionRate: completionRate
         },
         quizStats: {
           totalQuizzes: hunter.quizStats?.totalQuizzes || 0,

@@ -915,7 +915,7 @@ const hunterController = {
       });
     }
   },
-
+  // kPA5qW9hesaBIcoI  theguild
   // Request password reset
   async forgotPassword(req, res) {
     const { emailOrUsername } = req.body;
