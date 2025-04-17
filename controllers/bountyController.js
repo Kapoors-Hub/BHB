@@ -36,9 +36,16 @@ const bountyController = {
             } = req.body;
     
             // Process uploaded files
+            // const uploadedAssets = req.files ? req.files.map(file => ({
+            //     fileName: file.originalname,
+            //     fileUrl: file.path, // or wherever you store the file path/URL
+            //     uploadedAt: new Date()
+            // })) : [];
+
             const uploadedAssets = req.files ? req.files.map(file => ({
                 fileName: file.originalname,
-                fileUrl: file.path, // or wherever you store the file path/URL
+                // Convert the server path to a URL path
+                fileUrl: `/filess/${file.filename}`, // Use file.filename, not file.path
                 uploadedAt: new Date()
             })) : [];
     
