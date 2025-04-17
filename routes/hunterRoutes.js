@@ -44,6 +44,7 @@ router.get('/bounties/:bountyId/rankings', validateHunterToken, hunterBountyCont
 router.get('/rankings', validateHunterToken, hunterBountyController.getMyRankings);
 router.get('/quit-bounties', validateHunterToken, hunterBountyController.getMyQuitBounties);
 
+router.get('/hunter-files/:fileId', validateHunterToken, hunterBountyController.getHunterFile);
 
 // issue
 router.post('/issues', validateHunterToken, upload.array('attachedFiles', 3), issueController.reportIssue);

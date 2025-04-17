@@ -9,7 +9,7 @@ const TitleAward = require('../models/TitleAward');
 
 const initCronJobs = () => {
     // Add this to your config/cronJobs.js file
-    cron.schedule('00 08 * * *', async () => {
+    cron.schedule('18 03 * * *', async () => {
         try {
 
             // Use IST (UTC+5:30)
@@ -61,7 +61,7 @@ const initCronJobs = () => {
     });
 
     // Add this to your config/cronJobs.js file
-    cron.schedule('00 00 * * *', async () => {
+    cron.schedule('22 03 * * *', async () => {
         try {
             const currentTime = new Date();
             console.log('Running bounty closure check at midnight:', currentTime.toISOString());

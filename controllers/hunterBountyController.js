@@ -1662,7 +1662,54 @@ async getMyRankings(req, res) {
         error: error.message
       });
     }
-  }
+  },
+
+  async getHunterFile(req, res) {
+    try {
+        const fileId = req.params.fileId;
+        const hunterId = req.hunter.id;
+        
+        // Find the submission containing this file
+        const bounty = await Bounty.findOne({
+            'participants.hunter': hunterId,
+            'participants.submission.files.fileName': fileId
+        });
+        
+        if (!bounty) {
+            // Check if this is a public bounty asset instead
+            const publicBounty = await Bounty.findOne({
+                'assets.fileName': fileId
+            });
+            
+            if (publicBounty) {
+                // This is a bounty asset which should be public
+                const filePath = `/var/www/filestore/${fileId}`;
+                return res.sendFile(filePath);
+            }
+            
+            // If neither hunter's file nor public asset
+            return res.status(403).json({
+                status: 403,
+                success: false,
+                message: 'You do not have permission to access this file'
+            });
+        }
+        
+        // File path on server
+        const filePath = `/var/www/filestore/${fileId}`;
+        
+        // Serve the file
+        res.sendFile(filePath);
+        
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error retrieving file',
+            error: error.message
+        });
+    }
+}
 
 };
 
