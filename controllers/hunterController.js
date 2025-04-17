@@ -10,6 +10,7 @@ const FoulRecord = require('../models/FoulRecord');
 const Bounty = require('../models/Bounty');
 const mongoose = require('mongoose');
 const { calculateNextLevelThreshold } = require('../utils/passHelper');
+const { HunterPass } = require('../models/Pass');
 
 const hunterController = {
 
