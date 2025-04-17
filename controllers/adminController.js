@@ -110,6 +110,8 @@ This OTP will expire in 10 minutes. Please verify your account to complete the r
 
 Admin Remarks: ${remarks}
 
+Verify here : ${"https://bountyhunters.in/hunterLanding"}
+
 Best regards,
 Bounty Hunter Platform Team`
             };

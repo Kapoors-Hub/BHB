@@ -1134,7 +1134,7 @@ async getHunterPasses(req, res) {
  * Controller function for hunters to use Time Extension pass
  * to extend a bounty deadline
  */
-async useTimeExtensionPass(req, res) {
+ async useTimeExtensionPass(req, res) {
     // Start a session for transaction
     const session = await mongoose.startSession();
     
@@ -1184,19 +1184,13 @@ async useTimeExtensionPass(req, res) {
         });
       }
       
-      // Check if hunter has a time extension pass to use (new system)
+      // Check if hunter has a time extension pass to use
       const hunterPass = await HunterPass.findOne({
         hunter: hunterId,
         passType: 'timeExtension'
       });
       
-      const legacyHunter = await Hunter.findById(hunterId);
-      
-      // Check available passes in both systems
-      const hasLegacyPass = legacyHunter && legacyHunter.passes.timeExtension.count > 0;
-      const hasNewPass = hunterPass && hunterPass.count > 0;
-      
-      if (!hasLegacyPass && !hasNewPass) {
+      if (!hunterPass || hunterPass.count <= 0) {
         return res.status(400).json({
           status: 400,
           success: false,
@@ -1235,25 +1229,15 @@ async useTimeExtensionPass(req, res) {
         { session }
       );
       
-      // Deduct pass from hunter's inventory (both systems)
-      if (hasNewPass) {
-        await HunterPass.updateOne(
-          { _id: hunterPass._id },
-          { 
-            $inc: { count: -1 },
-            $set: { lastUpdated: new Date() }
-          },
-          { session }
-        );
-      }
-      
-      if (hasLegacyPass) {
-        await Hunter.findByIdAndUpdate(
-          hunterId,
-          { $inc: { 'passes.timeExtension.count': -1 } },
-          { session }
-        );
-      }
+      // Deduct pass from hunter's inventory
+      await HunterPass.updateOne(
+        { _id: hunterPass._id },
+        { 
+          $inc: { count: -1 },
+          $set: { lastUpdated: new Date() }
+        },
+        { session }
+      );
       
       // Record the pass usage
       await PassUsage.create([{
@@ -1268,11 +1252,6 @@ async useTimeExtensionPass(req, res) {
       
       // Commit the transaction
       await session.commitTransaction();
-      
-      // Format dates for display
-      const originalEndTime = bounty.endTime;
-      const formattedOriginalEnd = originalEndTime.toLocaleString();
-      const formattedExtendedEnd = personalEndTime.toLocaleString();
       
       // Create notification about the pass usage
       await notificationController.createNotification({
@@ -1294,11 +1273,11 @@ async useTimeExtensionPass(req, res) {
             title: bounty.title
           },
           timeExtension: {
-            originalEndTime: originalEndTime,
+            originalEndTime: bounty.endTime,
             extendedEndTime: personalEndTime,
             extensionHours: extensionHours
           },
-          remainingPasses: (hasNewPass ? hunterPass.count : legacyHunter.passes.timeExtension.count) - 1
+          remainingPasses: hunterPass.count - 1
         }
       });
     } catch (error) {
