@@ -4,7 +4,8 @@ const path = require('path');
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'files/');  // Store files in 'files' directory
+        // cb(null, 'files/');  
+        cb(null, '/var/www/filestore/');
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
