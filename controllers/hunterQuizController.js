@@ -100,26 +100,80 @@ const hunterQuizController = {
     },
 
     // Get all available quizzes for hunters
+    // async getAvailableQuizzes(req, res) {
+    //     try {
+    //         const hunterId = req.hunter.id;
+
+    //         // Get active quizzes
+    //         const quizzes = await Quiz.find({ active: true })
+    //             .select('title description totalQuestions timeDuration timeLimited category createdAt');
+
+    //         // Get completed attempts for this hunter
+    //         const completedAttempts = await QuizAttempt.find({
+    //             hunter: hunterId,
+    //             completedAt: { $exists: true }
+    //         }).select('quiz xpEarned correctAnswers totalQuestions');
+
+    //         // Map quiz data with completion info
+    //         const availableQuizzes = quizzes.map(quiz => {
+    //             const attempt = completedAttempts.find(a =>
+    //                 a.quiz.toString() === quiz._id.toString()
+    //             );
+
+    //             return {
+    //                 _id: quiz._id,
+    //                 title: quiz.title,
+    //                 description: quiz.description,
+    //                 totalQuestions: quiz.totalQuestions,
+    //                 timeDuration: quiz.timeDuration,
+    //                 timeLimited: quiz.timeLimited,
+    //                 category: quiz.category,
+    //                 maxPossibleXP: quiz.totalQuestions * 25,
+    //                 attempted: !!attempt,
+    //                 score: attempt ? attempt.correctAnswers / attempt.totalQuestions * 100 : null,
+    //                 xpEarned: attempt ? attempt.xpEarned : null
+    //             };
+    //         });
+
+    //         return res.status(200).json({
+    //             status: 200,
+    //             success: true,
+    //             message: 'Available quizzes retrieved successfully',
+    //             data: {
+    //                 count: availableQuizzes.length,
+    //                 quizzes: availableQuizzes
+    //             }
+    //         });
+    //     } catch (error) {
+    //         return res.status(500).json({
+    //             status: 500,
+    //             success: false,
+    //             message: 'Error retrieving available quizzes',
+    //             error: error.message
+    //         });
+    //     }
+    // },
+
     async getAvailableQuizzes(req, res) {
         try {
             const hunterId = req.hunter.id;
-
-            // Get active quizzes
-            const quizzes = await Quiz.find({ active: true })
-                .select('title description totalQuestions timeDuration timeLimited category createdAt');
-
-            // Get completed attempts for this hunter
-            const completedAttempts = await QuizAttempt.find({
-                hunter: hunterId,
-                completedAt: { $exists: true }
-            }).select('quiz xpEarned correctAnswers totalQuestions');
-
-            // Map quiz data with completion info
+    
+            // Get ALL attempts for this hunter, not just completed ones
+            const attempts = await QuizAttempt.find({
+                hunter: hunterId
+            }).select('quiz');
+    
+            // Get IDs of all attempted quizzes
+            const attemptedQuizIds = attempts.map(attempt => attempt.quiz.toString());
+    
+            // Get active quizzes that haven't been attempted by this hunter
+            const quizzes = await Quiz.find({ 
+                active: true,
+                _id: { $nin: attemptedQuizIds } // Exclude all attempted quizzes
+            }).select('title description totalQuestions timeDuration timeLimited category createdAt');
+    
+            // Format quiz data
             const availableQuizzes = quizzes.map(quiz => {
-                const attempt = completedAttempts.find(a =>
-                    a.quiz.toString() === quiz._id.toString()
-                );
-
                 return {
                     _id: quiz._id,
                     title: quiz.title,
@@ -129,16 +183,16 @@ const hunterQuizController = {
                     timeLimited: quiz.timeLimited,
                     category: quiz.category,
                     maxPossibleXP: quiz.totalQuestions * 25,
-                    attempted: !!attempt,
-                    score: attempt ? attempt.correctAnswers / attempt.totalQuestions * 100 : null,
-                    xpEarned: attempt ? attempt.xpEarned : null
+                    attempted: false, // Always false since we're filtering out attempted ones
+                    score: null,
+                    xpEarned: null
                 };
             });
-
+    
             return res.status(200).json({
                 status: 200,
                 success: true,
-                message: 'Available quizzes retrieved successfully',
+                message: 'Available unattempted quizzes retrieved successfully',
                 data: {
                     count: availableQuizzes.length,
                     quizzes: availableQuizzes

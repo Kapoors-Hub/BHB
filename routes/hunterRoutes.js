@@ -15,6 +15,7 @@ const withdrawalController = require('../controllers/withdrawalController');
 
 router.post('/register', validateHunterRegistration, hunterController.register);
 router.post('/verify-otp', hunterController.verifyOTP);
+router.post('/verify-reset-otp', hunterController.verifyOTPR);
 router.get('/status/:email', hunterController.getStatus);
 router.put('/complete-profile/:email', hunterController.completeProfile);
 router.post('/login', hunterController.login);

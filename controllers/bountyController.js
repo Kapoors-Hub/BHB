@@ -237,7 +237,7 @@ const bountyController = {
     async deleteBounty(req, res) {
         try {
             const bounty = await Bounty.findById(req.params.bountyId);
-
+    
             if (!bounty) {
                 return res.status(404).json({
                     status: 404,
@@ -245,7 +245,7 @@ const bountyController = {
                     message: 'Bounty not found'
                 });
             }
-
+    
             if (bounty.createdBy.toString() !== req.lord.id) {
                 return res.status(403).json({
                     status: 403,
@@ -253,22 +253,34 @@ const bountyController = {
                     message: 'Not authorized to delete this bounty'
                 });
             }
-
+    
+            // Only allow deletion of bounties that are 'yet to start'
             if (bounty.status !== 'yts') {
                 return res.status(400).json({
                     status: 400,
                     success: false,
-                    message: 'Cannot delete active or completed bounty'
+                    message: 'Only upcoming bounties can be deleted. Active, closed, or completed bounties cannot be deleted.'
                 });
             }
-
+    
+            // Check if there are any participants already
+            if (bounty.participants && bounty.participants.length > 0) {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    message: 'Cannot delete bounty with registered participants'
+                });
+            }
+    
+            // Remove the bounty from the lord's bounties array
             await Lord.findByIdAndUpdate(
                 req.lord.id,
                 { $pull: { bounties: bounty._id } }
             );
-
+    
+            // Delete the bounty
             await Bounty.findByIdAndDelete(req.params.bountyId);
-
+    
             return res.status(200).json({
                 status: 200,
                 success: true,

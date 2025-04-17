@@ -416,6 +416,65 @@ const hunterController = {
       });
     }
   },
+
+  async verifyOTPR(req, res) {
+    try {
+      const { email, otp } = req.body;
+      
+      const hunter = await Hunter.findOne({ collegeEmail: email });
+      
+      if (!hunter) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: 'Hunter not found',
+          error: 'No account exists with this college email address'
+        });
+      }
+      
+      if (!hunter.resetPasswordOtp || !hunter.resetPasswordOtp.code || hunter.resetPasswordOtp.expiresAt < new Date()) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'OTP is invalid or expired',
+          error: 'The OTP has expired or was never generated. Please request a new one.'
+        });
+      }
+      
+      if (hunter.resetPasswordOtp.code !== otp) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'Invalid OTP',
+          error: 'The OTP you entered is incorrect. Please check and try again.'
+        });
+      }
+      
+      // OTP is correct but we don't clear it yet to allow for password reset
+      // hunter.resetPasswordOtp = undefined;
+      // await hunter.save();
+      
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: 'OTP verified successfully',
+        data: {
+          verified: true,
+          email: email
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error verifying OTP:', error);
+      return res.status(500).json({
+        status: 500,
+        success: false,
+        message: 'Error verifying OTP',
+        error: error.message
+      });
+    }
+  },
+
   // Get hunter status
   async getStatus(req, res) {
     const { email } = req.params;
@@ -664,7 +723,7 @@ const hunterController = {
     }
   },
 
-  // Add this method to hunterController.js
+
 
   // Verify hunter password
   async verifyPassword(req, res) {
