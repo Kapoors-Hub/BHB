@@ -342,23 +342,38 @@ const hunterController = {
   // }
   // Register new hunter
   async register(req, res) {
-    const hunterData = req.body;
-
-    const existingHunter = await Hunter.findOne({
-      $or: [
-        { collegeEmail: hunterData.collegeEmail },
-        { mobileNumber: hunterData.mobileNumber }
-      ]
-    });
-
-    if (existingHunter) {
-      throw ErrorHandler.badRequest('Email or mobile number already registered');
+    try {
+      const hunterData = req.body;
+  
+      // Check if hunter already exists with same email or mobile
+      const existingHunter = await Hunter.findOne({
+        $or: [
+          { collegeEmail: hunterData.collegeEmail },
+          { mobileNumber: hunterData.mobileNumber }
+        ]
+      });
+  
+      if (existingHunter) {
+        throw ErrorHandler.badRequest('Email or mobile number already registered');
+      }
+  
+      // Create the new hunter
+      const hunter = await Hunter.create(hunterData);
+      
+      // Give the new hunter one time extension pass
+      await HunterPass.create({
+        hunter: hunter._id,
+        passType: 'timeExtension',
+        count: 1,
+        lastUpdated: new Date()
+      });
+  
+      return res.status(201).json(Success.created('Registration successful. Please wait for admin approval.'));
+    } catch (error) {
+      // Pass the error to your error handler
+      return next(error);
     }
-
-    const hunter = await Hunter.create(hunterData);
-    return res.status(201).json(Success.created('Registration successful. Please wait for admin approval.'));
   },
-
   // Verify OTP
   async verifyOTP(req, res) {
     try {
