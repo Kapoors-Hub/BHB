@@ -166,78 +166,89 @@ const hunterBountyController = {
 
     // Check if hunter has accepted a bounty
 
-async checkAcceptedBountyStatus(req, res) {
-    try {
-        const { bountyId } = req.params;
-        const hunterId = req.hunter.id;
-        
-        // Find the hunter
-        const hunter = await Hunter.findById(hunterId);
-        
-        if (!hunter) {
+    async checkAcceptedBountyStatus(req, res) {
+        try {
+          const { bountyId } = req.params;
+          const hunterId = req.hunter.id;
+          
+          // Find the hunter
+          const hunter = await Hunter.findById(hunterId);
+          
+          if (!hunter) {
             return res.status(404).json({
-                status: 404,
-                success: false,
-                message: 'Hunter not found'
+              status: 404,
+              success: false,
+              message: 'Hunter not found'
             });
-        }
-        
-        // Check if the bounty ID is in the hunter's acceptedBounties array
-        const isAccepted = hunter.acceptedBounties.includes(bountyId);
-        
-        // Check if the bounty ID is in the hunter's quitBounties array
-        const hasQuit = hunter.quitBounties.includes(bountyId);
-        
-        // Get additional details if the bounty is accepted
-        let bountyDetails = null;
-        let participantStatus = null;
-        
-        if (isAccepted) {
+          }
+          
+          // Check if the bounty ID is in the hunter's acceptedBounties array
+          const isAccepted = hunter.acceptedBounties.includes(bountyId);
+          
+          // Check if the bounty ID is in the hunter's quitBounties array
+          const hasQuit = hunter.quitBounties.includes(bountyId);
+          
+          // Get additional details if the bounty is accepted
+          let bountyDetails = null;
+          let participantStatus = null;
+          let timeExtensionApplied = false;
+          let extendedEndTime = null;
+          
+          if (isAccepted) {
             const bounty = await Bounty.findOne({
-                _id: bountyId,
-                'participants.hunter': hunterId
+              _id: bountyId,
+              'participants.hunter': hunterId
             });
             
             if (bounty) {
-                const participant = bounty.participants.find(
-                    p => p.hunter.toString() === hunterId
-                );
+              const participant = bounty.participants.find(
+                p => p.hunter.toString() === hunterId
+              );
+              
+              if (participant) {
+                participantStatus = participant.status;
                 
-                if (participant) {
-                    participantStatus = participant.status;
-                    
-                    bountyDetails = {
-                        title: bounty.title,
-                        status: bounty.status,
-                        startTime: bounty.startTime,
-                        endTime: bounty.endTime,
-                        hasSubmitted: participant.submission && participant.submission.submittedAt ? true : false,
-                        participantStatus: participantStatus
-                    };
-                }
+                // Check if time extension has been applied
+                timeExtensionApplied = participant.extendedEndTime ? true : false;
+                extendedEndTime = participant.extendedEndTime;
+                
+                bountyDetails = {
+                  title: bounty.title,
+                  status: bounty.status,
+                  startTime: bounty.startTime,
+                  endTime: bounty.endTime,
+                  hasSubmitted: participant.submission && participant.submission.submittedAt ? true : false,
+                  participantStatus: participantStatus,
+                  timeExtensionApplied: timeExtensionApplied,
+                  extendedEndTime: extendedEndTime
+                };
+              }
             }
-        }
-        
-        return res.status(200).json({
+          }
+          
+          return res.status(200).json({
             status: 200,
             success: true,
             data: {
-                isAccepted,
-                hasQuit,
-                bountyId,
-                participantStatus,
-                bountyDetails
+              isAccepted,
+              hasQuit,
+              bountyId,
+              participantStatus,
+              timeExtensionApplied,
+              extendedEndTime,
+              bountyDetails
             }
-        });
-    } catch (error) {
-        return res.status(500).json({
+          });
+        } catch (error) {
+          console.error('Error in checkAcceptedBountyStatus:', error);
+          return res.status(500).json({
             status: 500,
             success: false,
             message: 'Error checking bounty status',
             error: error.message
-        });
-    }
-},
+          });
+        }
+      },
 
     // Accept a bounty
     async acceptBounty(req, res) {
