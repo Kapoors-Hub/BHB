@@ -1,4 +1,5 @@
 // controllers/publicController.js
+const { default: mongoose } = require('mongoose');
 const Bounty = require('../models/Bounty');
 const Hunter = require('../models/Hunter');
 const TitleAward = require('../models/TitleAward');

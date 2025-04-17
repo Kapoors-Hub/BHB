@@ -454,98 +454,87 @@ const issueController = {
   // Report a new issue (works for both lords and hunters)
   async reportIssue(req, res) {
     try {
-      // Process the request after file upload is complete
-      upload.array('attachedFiles', 3)(req, res, async (err) => {
-        if (err) {
-          return res.status(400).json({
-            status: 400,
-            success: false,
-            message: 'File upload error',
-            error: err.message
-          });
-        }
-
-        const { type, query } = req.body;
-        const files = req.files || [];
-        
-        // Validate issue type
-        const validTypes = ['Technical Issue ', 'Payment Issue', 'Project and Work Submission', 'Other', 'Account & Profile', 'Hunter/Lord Behavior', 'General Inquiry'];
-
-        if (!validTypes.includes(type)) {
-          return res.status(400).json({
-            status: 400,
-            success: false,
-            message: 'Invalid issue type'
-          });
-        }
-
-        // Process uploaded files
-        const attachedFiles = files.map(file => ({
-          fileName: file.originalname,
-          filePath: file.path,
-          uploadedAt: new Date()
-        }));
-
-        // Determine user type
-        let userId, userName, userRole;
-        
-        if (req.lord) {
-          userId = req.lord.id;
-          userRole = 'Lord';
-          const lord = await Lord.findById(userId);
-          userName = `${lord.firstName} ${lord.lastName}`;
-        } else if (req.hunter) {
-          userId = req.hunter.id;
-          userRole = 'Hunter';
-          const hunter = await Hunter.findById(userId);
-          userName = hunter.name;
-        } else {
-          return res.status(401).json({
-            status: 401,
-            success: false,
-            message: 'Unauthorized'
-          });
-        }
-
-        // Create new issue
-        const newIssue = await Issue.create({
-          user: {
-            id: userId,
-            role: userRole,
-            name: userName
-          },
-          type,
-          query,
-          attachedFiles,
-          status: 'open',
-          createdAt: new Date()
+      const { type, query } = req.body;
+      const files = req.files || [];
+      
+      // Validate issue type
+      const validTypes = ['Technical Issue ', 'Payment Issue', 'Project and Work Submission', 'Other', 'Account & Profile', 'Hunter/Lord Behavior', 'General Inquiry'];
+  
+      if (!validTypes.includes(type)) {
+        return res.status(400).json({
+          status: 400,
+          success: false,
+          message: 'Invalid issue type'
         });
-
-        if (userRole === 'Hunter') {
-            await Hunter.findByIdAndUpdate(
-              userId,
-              { $push: { issues: newIssue._id } }
-            );
-          } else if (userRole === 'Lord') {
-            await Lord.findByIdAndUpdate(
-              userId,
-              { $push: { issues: newIssue._id } }
-            );
-          }
-
-        return res.status(201).json({
-          status: 201,
-          success: true,
-          message: 'Issue reported successfully',
-          data: {
-            issueId: newIssue._id,
-            type: newIssue.type,
-            query: newIssue.query,
-            status: newIssue.status,
-            userType: userRole.toLowerCase(),
-            filesUploaded: attachedFiles.length
-          }
+      }
+  
+      // Process uploaded files
+      const attachedFiles = files.map(file => ({
+        fileName: file.originalname,
+        filePath: file.path,
+        uploadedAt: new Date()
+      }));
+  
+      // Determine user type
+      let userId, userName, userRole;
+      
+      if (req.lord) {
+        userId = req.lord.id;
+        userRole = 'Lord';
+        const lord = await Lord.findById(userId);
+        userName = `${lord.firstName} ${lord.lastName}`;
+      } else if (req.hunter) {
+        userId = req.hunter.id;
+        userRole = 'Hunter';
+        const hunter = await Hunter.findById(userId);
+        userName = hunter.name;
+      } else {
+        return res.status(401).json({
+          status: 401,
+          success: false,
+          message: 'Unauthorized'
         });
+      }
+  
+      // Create new issue
+      const newIssue = await Issue.create({
+        user: {
+          id: userId,
+          role: userRole,
+          name: userName
+        },
+        type,
+        query,
+        attachedFiles,
+        status: 'open',
+        createdAt: new Date()
+      });
+  
+      // Add the issue reference to the user's document
+      if (userRole === 'Hunter') {
+        await Hunter.findByIdAndUpdate(
+          userId,
+          { $push: { issues: newIssue._id } }
+        );
+      } else if (userRole === 'Lord') {
+        await Lord.findByIdAndUpdate(
+          userId,
+          { $push: { issues: newIssue._id } }
+        );
+      }
+  
+      return res.status(201).json({
+        status: 201,
+        success: true,
+        message: 'Issue reported successfully',
+        data: {
+          issueId: newIssue._id,
+          type: newIssue.type,
+          query: newIssue.query,
+          status: newIssue.status,
+          userType: userRole.toLowerCase(),
+          filesUploaded: attachedFiles.length
+        }
       });
     } catch (error) {
       return res.status(500).json({

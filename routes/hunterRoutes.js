@@ -46,7 +46,7 @@ router.get('/quit-bounties', validateHunterToken, hunterBountyController.getMyQu
 
 
 // issue
-router.post('/issues', validateHunterToken, issueController.reportIssue);
+router.post('/issues', validateHunterToken, upload.array('attachedFiles', 3), issueController.reportIssue);
 router.get('/issues', validateHunterToken, issueController.getMyIssues);
 router.get('/issues/:issueId', validateHunterToken, issueController.getIssue);
 router.put('/issues/:issueId', validateHunterToken, issueController.updateIssue);
