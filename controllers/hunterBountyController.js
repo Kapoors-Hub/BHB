@@ -103,6 +103,7 @@ const hunterBountyController = {
     async getBountyDetails(req, res) {
         try {
           const { bountyId } = req.params;
+          const hunterId = req.hunter.id;
           
           // Validate ObjectId to avoid unnecessary database query
           if (!mongoose.Types.ObjectId.isValid(bountyId)) {
@@ -113,9 +114,9 @@ const hunterBountyController = {
             });
           }
           
-          // Use projection to exclude specified fields
+          // Get the bounty with basic details
           const bounty = await Bounty.findById(bountyId)
-            .select('-__v -participants -shortlistedHunters -createdBy  -evaluatedHunters -resultId -createdAt')
+            .select('-__v -shortlistedHunters -evaluatedHunters -resultId -createdAt')
             .lean();
           
           if (!bounty) {
@@ -126,11 +127,31 @@ const hunterBountyController = {
             });
           }
           
+          // Find the hunter's submission in the participants array
+          const hunterParticipation = bounty.participants.find(
+            p => p.hunter.toString() === hunterId
+          );
+          
+          // Create a sanitized version of the bounty without participants array
+          const sanitizedBounty = {
+            ...bounty,
+            participants: undefined // Remove all participants data
+          };
+          
+          // Add hunter's submission files if they exist
+          if (hunterParticipation && hunterParticipation.submission && hunterParticipation.submission.files) {
+            sanitizedBounty.hunterSubmission = {
+              files: hunterParticipation.submission.files,
+              description: hunterParticipation.submission.description,
+              submittedAt: hunterParticipation.submission.submittedAt
+            };
+          }
+          
           return res.status(200).json({
             status: 200,
             success: true,
             message: 'Bounty details fetched successfully',
-            data: bounty
+            data: sanitizedBounty
           });
         } catch (error) {
           console.error('Error in getBountyDetails:', error);
@@ -141,7 +162,7 @@ const hunterBountyController = {
             error: error.message
           });
         }
-      },
+    },
 
     // Check if hunter has accepted a bounty
 
