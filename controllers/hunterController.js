@@ -342,7 +342,7 @@ const hunterController = {
   //   };
   // }
   // Register new hunter
-  async register(req, res) {
+  async register(req, res, next) {
     try {
       const hunterData = req.body;
   
@@ -371,8 +371,11 @@ const hunterController = {
   
       return res.status(201).json(Success.created('Registration successful. Please wait for admin approval.'));
     } catch (error) {
-      // Pass the error to your error handler
-      return next(error);
+      // Use a direct response instead of next() if you don't have next
+      return res.status(error.statusCode || 500).json({
+        status: 'error',
+        message: error.message || 'An error occurred during registration'
+      });
     }
   },
   // Verify OTP
