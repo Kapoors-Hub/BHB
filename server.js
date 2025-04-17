@@ -164,3 +164,9 @@ server.on('error', (error) => {
 });
 
 module.exports = app;
+
+
+// #/bin/bash
+// rm /var/www/hunter -r
+// mv dist /var/www/hunter
+// systemctl restart nginx.service

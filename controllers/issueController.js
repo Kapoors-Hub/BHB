@@ -672,6 +672,7 @@ const issueController = {
     try {
       const { issueId } = req.params;
       const { query, type } = req.body;
+      const files = req.files || [];
       
       let userId, userRole;
       
@@ -694,7 +695,7 @@ const issueController = {
         'user.id': userId,
         'user.role': userRole
       });
-
+      
       if (!issue) {
         return res.status(404).json({
           status: 404,
@@ -702,7 +703,7 @@ const issueController = {
           message: 'Issue not found'
         });
       }
-
+      
       // User can only update open issues
       if (issue.status !== 'open') {
         return res.status(400).json({
@@ -711,21 +712,44 @@ const issueController = {
           message: 'Cannot update issue that is already in progress or resolved'
         });
       }
-
-      // Update fields
+      
+      // Update text fields
       if (query) issue.query = query;
-      if (type && ['Technical Issue ', 'Payment Issue', 'Project and Work Submission', 'Other', 'Account & Profile', 'Hunter/Lord Behavior', 'General Inquiry'].includes(type)) {
+      
+      const validTypes = ['Technical Issue ', 'Payment Issue', 'Project and Work Submission', 'Other', 'Account & Profile', 'Hunter/Lord Behavior', 'General Inquiry'];
+      if (type && validTypes.includes(type)) {
         issue.type = type;
       }
-
+      
+      // Process and add new files if provided
+      if (files.length > 0) {
+        const newFiles = files.map(file => ({
+          fileName: file.originalname,
+          filePath: file.path,
+          uploadedAt: new Date()
+        }));
+        
+        // Add new files to existing array
+        issue.attachedFiles = [...(issue.attachedFiles || []), ...newFiles];
+      }
+      
+      // Update modified timestamp
+      issue.updatedAt = new Date();
+      
       await issue.save();
-
+      
       return res.status(200).json({
         status: 200,
         success: true,
         message: 'Issue updated successfully',
         data: {
-          ...issue.toObject(),
+          id: issue._id,
+          type: issue.type,
+          query: issue.query,
+          status: issue.status,
+          attachedFiles: issue.attachedFiles.map(file => file.fileName),
+          createdAt: issue.createdAt,
+          updatedAt: issue.updatedAt,
           userType: userRole.toLowerCase()
         }
       });
