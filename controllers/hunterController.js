@@ -788,9 +788,10 @@ const hunterController = {
         state,
         postalZipCode,
         placeOfResidence,
-        guild
+        guild,
+        username // Added username field
       } = req.body;
-
+  
       // Find hunter by id
       const hunter = await Hunter.findById(hunterId);
       if (!hunter) {
@@ -800,7 +801,7 @@ const hunterController = {
           message: 'Hunter not found'
         });
       }
-
+  
       // Check if personalEmail is changing and if so, validate it's not taken
       if (personalEmail && personalEmail !== hunter.personalEmail) {
         const existingEmailHunter = await Hunter.findOne({ personalEmail });
@@ -812,7 +813,7 @@ const hunterController = {
           });
         }
       }
-
+  
       // Check if mobile number is changing and if so, validate it's not taken
       if (mobileNumber && mobileNumber !== hunter.mobileNumber) {
         const existingMobileHunter = await Hunter.findOne({ mobileNumber });
@@ -824,7 +825,19 @@ const hunterController = {
           });
         }
       }
-
+  
+      // Check if username is changing and if so, validate it's not taken
+      if (username && username !== hunter.username) {
+        const existingUsernameHunter = await Hunter.findOne({ username });
+        if (existingUsernameHunter) {
+          return res.status(400).json({
+            status: 400,
+            success: false,
+            message: 'Username is already in use'
+          });
+        }
+      }
+  
       // Fields that can be updated directly
       const updatableFields = {
         name,
@@ -838,23 +851,24 @@ const hunterController = {
         state,
         postalZipCode,
         placeOfResidence,
-        guild
+        guild,
+        username // Added username to updatable fields
       };
-
+  
       // Remove undefined fields (fields not included in the request)
       Object.keys(updatableFields).forEach(key => {
         if (updatableFields[key] === undefined) {
           delete updatableFields[key];
         }
       });
-
+  
       // Update hunter with validated fields
       const updatedHunter = await Hunter.findByIdAndUpdate(
         hunterId,
         { $set: updatableFields },
         { new: true, runValidators: true }
       ).select('-resetPasswordOtp -otp -password');
-
+  
       // Create notification about profile update
       await notificationController.createNotification({
         hunterId: hunterId,
@@ -862,7 +876,7 @@ const hunterController = {
         message: 'Your personal information has been successfully updated.',
         type: 'system'
       });
-
+  
       return res.status(200).json({
         status: 200,
         success: true,
@@ -871,7 +885,7 @@ const hunterController = {
           personalInfo: {
             id: updatedHunter._id,
             name: updatedHunter.name,
-            username: updatedHunter.username,
+            username: updatedHunter.username, // Already present in response
             collegeName: updatedHunter.collegeName,
             collegeEmail: updatedHunter.collegeEmail,
             personalEmail: updatedHunter.personalEmail,
