@@ -343,39 +343,189 @@ const hunterBountyController = {
                 // Email subject
                 const subject = `Registration Confirmed: ${bounty.title}`;
                 
-                // Email content
-                const emailContent = `
-                    <h2>Registration Confirmed!</h2>
-                    <p>Hello ${hunter.name},</p>
-                    <p>You have successfully registered for the bounty: <strong>${bounty.title}</strong>.</p>
-                    
-                    <h3>Bounty Details:</h3>
-                    <ul>
-                        <li><strong>Start Date:</strong> ${startDate}</li>
-                        <li><strong>End Date:</strong> ${endDate}</li>
-                        <li><strong>Reward Prize:</strong> ${bounty.rewardPrize}</li>
-                    </ul>
-                    
-                    <h3>Discussion Session:</h3>
-                    <p>Join the doubt clearing session at:</p>
-                    <ul>
-                        <li><strong>Date:</strong> ${doubtSessionDate}</li>
-                        <li><strong>Time:</strong> ${doubtSessionTime}</li>
-                        <li><strong>Link:</strong> <a href="${bounty.doubtSessionLink}">${bounty.doubtSessionLink}</a></li>
-                    </ul>
-                    
-                    <p>Good luck with your bounty hunt!</p>
-                    <p>The Bounty Hunters Team</p>
-                `;
-                
-                // Send the email using your transporter
-                const mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: hunter.personalEmail,
-                    cc: hunter.collegeEmail,
-                    subject: subject,
-                    html: emailContent
-                };
+      // Email content
+const emailContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Bounty Registration Confirmed</title>
+</head>
+<body style="background-color: #1a1a1a; color: white; font-family: Arial, sans-serif; margin: 0; padding: 0;">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #1a1a1a;">
+        <tr>
+            <td align="center" valign="top" style="padding: 20px;">
+                <table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width: 100%; background-image: url(cid:backgroundImage); background-color: #1a1a1a;">
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            <!-- Header -->
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center" style="padding-bottom: 20px;">
+                                        <img src="cid:headerLogo" alt="Bounty Hunters" style="max-width: 100%; height: auto; display: block;">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="height: 1px; background-color: #C8C8C8;"></td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Title with Icon -->
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding-top: 24px; padding-bottom: 40px;">
+                                <tr>
+                                    <td>
+                                        <table cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="vertical-align: middle; padding-right: 10px;">
+                                                    <img src="cid:iconConfirmed" alt="Confirmed" style="display: block;">
+                                                </td>
+                                                <td style="vertical-align: middle;">
+                                                    <h1 style="font-size: 24px; font-family: 'Orbitron', Arial, sans-serif; margin: 0; font-weight: 400; line-height: 140%; letter-spacing: 0.48px;">
+                                                        Bounty Registration Confirmed
+                                                    </h1>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Main Content -->
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                <tr>
+                                    <td style="padding-bottom: 5px;">
+                                        <p style="margin: 0; font-size: 16px;">Hey ${hunter.name},</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-top: 15px;">
+                                        <p style="margin: 0; font-family: 'Roboto Mono', monospace; line-height: 1.6;">
+                                            🔒 Your registration for <strong>${bounty.title}</strong> is locked and confirmed. The challenge awaits, and the competition is fierce.
+                                        </p>
+                                        <p style="margin: 10px 0 0 0; font-family: 'Roboto Mono', monospace; line-height: 1.6;">
+                                            Now, it's all about strategy, skill, and execution. Prepare yourself—because only the sharpest will rise.
+                                        </p>
+                                        
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 20px 0;">
+                                            <tr>
+                                                <td style="padding-bottom: 5px; font-family: 'Roboto Mono', monospace;">
+                                                    📅 <strong>Important Dates:</strong>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding-left: 20px; font-family: 'Roboto Mono', monospace;">
+                                                    • Start Date: ${startDate}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding-left: 20px; font-family: 'Roboto Mono', monospace;">
+                                                    • End Date: ${endDate}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding-left: 20px; font-family: 'Roboto Mono', monospace;">
+                                                    • Reward Prize: ${bounty.rewardPrize}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 20px 0;">
+                                            <tr>
+                                                <td style="padding-bottom: 5px; font-family: 'Roboto Mono', monospace;">
+                                                    💬 <strong>Discussion Session:</strong>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding-left: 20px; font-family: 'Roboto Mono', monospace;">
+                                                    • Date: ${doubtSessionDate}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding-left: 20px; font-family: 'Roboto Mono', monospace;">
+                                                    • Time: ${doubtSessionTime}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding-left: 20px; font-family: 'Roboto Mono', monospace;">
+                                                    • Link: <a href="${bounty.doubtSessionLink}" style="color: #10daff; text-decoration: underline;">${bounty.doubtSessionLink}</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        
+                                        <p style="margin: 10px 0 0 0; font-family: 'Roboto Mono', monospace; line-height: 1.6;">
+                                            Stay sharp. Stay ready. The countdown to submission has begun. The hunt has begun. Make your mark.
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 40px 0;">
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td align="center" bgcolor="white" style="padding: 16px; border-radius: 0;">
+                                                    <a href="https://bountyhunters.in/bountydescription/${bounty._id}" style="display: block; color: black; text-decoration: none; font-family: 'Roboto Mono', monospace; font-size: 16px; text-align: center; font-weight: 500;">View Bounty Details</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="height: 1px; background-color: #C8C8C8;"></td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Footer -->
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding-top: 10px;">
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0; padding-bottom: 5px; font-family: 'Roboto Mono', monospace;">🏳 The Hunt Never Ends.</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0; padding-bottom: 10px; font-family: 'Roboto Mono', monospace;">Bounty Hunters - Only the Worthy Prevail.</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="padding: 10px 0;">
+                                        <a href="mailto:theguild@bountyhunters.in" style="color: #C8C8C8; text-decoration: underline; font-family: 'Roboto Mono', monospace;">Contact Us</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+
+// Send the email using your transporter
+const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: hunter.personalEmail,
+    cc: hunter.collegeEmail,
+    subject: subject,
+    attachments: [
+        {
+            filename: 'header.png',
+            path: './assets/header.png',
+            cid: 'headerLogo'
+        },
+        {
+            filename: 'bg.png',
+            path: './assets/bg.png',
+            cid: 'backgroundImage'
+        },
+        {
+            filename: 'icon1.png',
+            path: './assets/icon1.svg',
+            cid: 'iconConfirmed'
+        }
+    ],
+    html: emailContent
+};
                 
                 await transporter.sendMail(mailOptions);
                 console.log(`Sent registration email for bounty ${bounty._id} to hunter ${hunterId}`);

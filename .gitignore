@@ -2,4 +2,3 @@ node_modules/
 .env
 files/*
 !files/.gitkeep
-./assets

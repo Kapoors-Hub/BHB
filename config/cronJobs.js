@@ -102,109 +102,144 @@ const initCronJobs = () => {
     });
 
     // Add to config/cronJobs.js
-    cron.schedule('51 12 11 * *', async () => {
+    cron.schedule('13 13 18 * *', async () => {
         try {
-            const currentDate = new Date();
-            console.log('Running monthly title revocation job on the 7th:', currentDate.toISOString());
-
-            // Find all hunters with titles
-            const hunters = await Hunter.find({
-                'titles.0': { $exists: true } // At least one title exists
-            }).select('name collegeEmail titles');
-
-            console.log(`Found ${hunters.length} hunters with titles to revoke`);
-
-            // Process each hunter
-            let totalRevokedTitles = 0;
-
-            for (const hunter of hunters) {
-                if (!hunter.titles || hunter.titles.length === 0) continue;
-
-                // Collect titles for tracking
-                const titleIds = hunter.titles.map(title => title.title);
-                const titleInfo = await Title.find({ _id: { $in: titleIds } })
-                    .select('name');
-
-                const titleNames = titleInfo.map(t => t.name);
-                totalRevokedTitles += hunter.titles.length;
-
-                // Create an expiredTitles array if it doesn't exist
-                if (!hunter.expiredTitles) {
-                    await Hunter.findByIdAndUpdate(
-                        hunter._id,
-                        { $set: { expiredTitles: [] } }
-                    );
+          const currentDate = new Date();
+          console.log('Running monthly title revocation job on the 18th:', currentDate.toISOString());
+      
+          // Find all active (non-revoked) title awards that are past their validity period
+          const expiredTitleAwards = await TitleAward.find({
+            validUntil: { $lt: currentDate },
+            isRevoked: false
+          }).populate('hunter', 'name collegeEmail')
+            .populate('title', 'name description');
+      
+          console.log(`Found ${expiredTitleAwards.length} expired title awards to revoke`);
+      
+          // Group by hunter for more efficient processing
+          const hunterTitleMap = new Map();
+          
+          for (const award of expiredTitleAwards) {
+            if (!award.hunter) continue; // Skip if hunter was deleted
+            
+            const hunterId = award.hunter._id.toString();
+            
+            if (!hunterTitleMap.has(hunterId)) {
+              hunterTitleMap.set(hunterId, {
+                hunter: award.hunter,
+                awards: [],
+                titleNames: []
+              });
+            }
+            
+            const hunterData = hunterTitleMap.get(hunterId);
+            hunterData.awards.push(award);
+            if (award.title && award.title.name) {
+              hunterData.titleNames.push(award.title.name);
+            }
+          }
+      
+          console.log(`Affecting ${hunterTitleMap.size} hunters`);
+          
+          // Process each hunter in bulk
+          let totalRevokedTitles = 0;
+          
+          for (const [hunterId, hunterData] of hunterTitleMap.entries()) {
+            const { hunter, awards, titleNames } = hunterData;
+            const titleIds = awards.map(award => award._id);
+            
+            // Mark all title awards as revoked in bulk
+            await TitleAward.updateMany(
+              { _id: { $in: titleIds } },
+              {
+                $set: {
+                  isRevoked: true,
+                  revokedAt: currentDate
                 }
-
-                // Move all titles to expiredTitles
-                await Hunter.findByIdAndUpdate(
-                    hunter._id,
-                    {
-                        $push: {
-                            expiredTitles: {
-                                $each: hunter.titles.map(title => ({
-                                    ...title.toObject(),
-                                    revokedAt: currentDate
-                                }))
-                            }
-                        },
-                        $set: { titles: [] } // Clear active titles
-                    }
-                );
-
-                // Update TitleAward entries to mark them as revoked
-                for (const title of hunter.titles) {
-                    await TitleAward.updateMany(
-                        {
-                            hunter: hunter._id,
-                            title: title.title,
-                            isRevoked: false
-                        },
-                        {
-                            $set: {
-                                isRevoked: true,
-                                revokedAt: currentDate
-                            }
-                        }
-                    );
-                }
-
+              }
+            );
+            
+            // Update hunter's titles array
+            // First get current hunter titles
+            const hunterDoc = await Hunter.findById(hunterId).select('titles expiredTitles');
+            
+            if (!hunterDoc) continue;
+            
+            // Initialize expiredTitles array if it doesn't exist
+            if (!hunterDoc.expiredTitles) {
+              hunterDoc.expiredTitles = [];
+            }
+            
+            // Filter out revoked titles from active titles and move to expired
+            const titleAwardIds = awards.map(award => award._id.toString());
+            const activeTitles = hunterDoc.titles.filter(title => {
+              // Keep titles that aren't in our revoked list
+              if (!titleAwardIds.includes(title.title.toString())) {
+                return true;
+              }
+              
+              // Move this title to expired
+              hunterDoc.expiredTitles.push({
+                ...title.toObject(),
+                revokedAt: currentDate
+              });
+              
+              return false;
+            });
+            
+            // Update the hunter document
+            hunterDoc.titles = activeTitles;
+            await hunterDoc.save();
+            
+            totalRevokedTitles += awards.length;
+            
+            // Only send notification if there are actually titles being revoked
+            if (titleNames.length > 0) {
+              try {
                 // Send notification email
                 await transporter.sendMail({
-                    from: process.env.EMAIL_USER,
-                    to: hunter.collegeEmail,
-                    subject: 'Your Titles Have Been Revoked',
-                    text: `
-Hello ${hunter.name},
-
-This is to inform you that the following title(s) have been revoked from your profile:
-${titleNames.map(name => `- ${name}`).join('\n')}
-
-Titles are awarded for specific periods and need to be renewed or earned again. Keep participating in bounties to earn more titles!
-
-Best regards,
-The Bounty Hunter Platform Team
-                `
+                  from: process.env.EMAIL_USER,
+                  to: hunter.collegeEmail,
+                  subject: 'Your Titles Have Expired',
+                  text: `
+      Hello ${hunter.name},
+      
+      This is to inform you that the following title(s) have expired from your profile:
+      ${titleNames.map(name => `- ${name}`).join('\n')}
+      
+      Titles are awarded for specific periods and need to be renewed or earned again. Keep participating in bounties to earn more titles!
+      
+      Best regards,
+      The Bounty Hunter Platform Team
+                  `
                 });
-
+              } catch (emailError) {
+                console.error(`Error sending email to hunter ${hunterId}:`, emailError);
+              }
+      
+              try {
                 // Create in-app notification
                 await notificationController.createNotification({
-                    hunterId: hunter._id,
-                    title: 'Titles Revoked',
-                    message: `${hunter.titles.length} title(s) have been revoked from your profile: ${titleNames.join(', ')}`,
-                    type: 'system'
+                  hunterId: hunterId,
+                  title: 'Titles Expired',
+                  message: `${titleNames.length} title(s) have expired from your profile: ${titleNames.join(', ')}`,
+                  type: 'system'
                 });
+              } catch (notifError) {
+                console.error(`Error creating notification for hunter ${hunterId}:`, notifError);
+              }
             }
-
-            console.log(`Successfully revoked ${totalRevokedTitles} titles from ${hunters.length} hunters`);
-
+          }
+      
+          console.log(`Successfully revoked ${totalRevokedTitles} titles affecting ${hunterTitleMap.size} hunters`);
+      
         } catch (error) {
-            console.error('Error in monthly title revocation job:', error);
+          console.error('Error in monthly title revocation job:', error);
         }
-    }, {
+      }, {
         scheduled: true,
         timezone: "Asia/Kolkata" // For IST
-    });
+      });
 };
 
 module.exports = initCronJobs;

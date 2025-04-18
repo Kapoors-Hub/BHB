@@ -99,21 +99,134 @@ const adminController = {
             const mailOptions = {
                 from: process.env.EMAIL_USER,
                 to: hunter.collegeEmail,
-                subject: 'Bounty Hunter Registration Approved - Verification OTP',
+                subject: 'Bounty Hunter Registration Approved - Welcome to the Hunt',
+                attachments: [
+                    {
+                        filename: 'header.png',
+                        path: './assets/header.png',
+                        cid: 'headerLogo'
+                    },
+                    {
+                        filename: 'bg.png',
+                        path: './assets/bg.png',
+                        cid: 'backgroundImage'
+                    }
+                ],
+                html: `<!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Bounty Hunters - Registration</title>
+            </head>
+            <body style="background-color: #1a1a1a; color: white; font-family: Arial, sans-serif; margin: 0; padding: 0;">
+                <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #1a1a1a;">
+                    <tr>
+                        <td align="center" valign="top" style="padding: 20px;">
+                            <table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width: 100%; background-image: url(cid:backgroundImage); background-color: #1a1a1a;">
+                                <tr>
+                                    <td style="padding: 40px 30px;">
+                                        <!-- Header -->
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                            <tr>
+                                                <td align="center" style="padding-bottom: 20px;">
+                                                    <img src="cid:headerLogo" alt="Bounty Hunters" style="max-width: 100%; height: auto; display: block;">
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="height: 1px; background-color: #C8C8C8;"></td>
+                                            </tr>
+                                        </table>
+                                        
+                                        <!-- Main Content -->
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding-top: 20px;">
+                                            <tr>
+                                                <td>
+                                                    <h1 style="font-size: 24px; font-family: 'Orbitron', Arial, sans-serif; margin-bottom: 30px; font-weight: 400; line-height: 140%; letter-spacing: 0.48px;">You made it in!</h1>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding-bottom: 5px;">
+                                                    <p style="margin: 0; font-size: 16px;">Hey ${hunter.name},</p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding-top: 15px; padding-bottom: 15px;">
+                                                    <p style="margin: 0; font-family: 'Roboto Mono', monospace; font-size: 16px;">The wait is finally over 😊. Here is your secret code to the start of greatness:</p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 15px 0;">
+                                                    <p style="font-size: 36px; font-weight: bold; color: white; font-family: 'Orbitron', Arial, sans-serif; margin: 0;">${otp}</p>
+                                                </td>
+                                            </tr>
+                                            ${remarks ? `
+                                            <tr>
+                                                <td style="padding: 15px; margin: 15px 0; background-color: #333; border-left: 3px solid #10daff;">
+                                                    <p style="margin: 0; font-family: 'Roboto Mono', monospace;"><strong>Admin Remarks:</strong> ${remarks}</p>
+                                                </td>
+                                            </tr>` : ''}
+                                            <tr>
+                                                <td style="padding: 15px 0;">
+                                                    <p style="margin: 0;">This OTP will expire in 10 minutes. Click on this <a href="https://bountyhunters.in/hunterLanding" style="color: #10daff; text-decoration: underline;">link</a>, and activate your hunter account now!</p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 30px 0;">
+                                                    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                                        <tr>
+                                                            <td align="center" bgcolor="white" style="padding: 16px; border-radius: 0;">
+                                                                <a href="https://bountyhunters.in/hunterLanding" style="display: block; color: black; text-decoration: none; font-family: 'Roboto Mono', monospace; font-size: 16px; width: 100%; text-align: center;">Go to Bounty Hunter</a>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="height: 1px; background-color: #C8C8C8; margin-bottom: 20px;"></td>
+                                            </tr>
+                                        </table>
+                                        
+                                        <!-- Footer -->
+                                        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding-top: 20px;">
+                                            <tr>
+                                                <td align="center">
+                                                    <p style="margin: 0; padding-bottom: 5px; font-family: 'Roboto Mono', monospace;">🏳 The Hunt Never Ends.</p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center">
+                                                    <p style="margin: 0; padding-bottom: 10px; font-family: 'Roboto Mono', monospace;">Bounty Hunters - Only the Worthy Prevail.</p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center" style="padding: 10px 0;">
+                                                    <a href="mailto:theguild@bountyhunters.in" style="color: #C8C8C8; text-decoration: underline;">Contact Us</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+            </html>`,
                 text: `Dear ${hunter.name},
-
-Congratulations! Your bounty hunter registration has been approved.
-
-Your OTP for verification is: ${otp}
-
-This OTP will expire in 10 minutes. Please verify your account to complete the registration process.
-
-Admin Remarks: ${remarks}
-
-Verify here : ${"https://bountyhunters.in/hunterLanding"}
-
-Best regards,
-Bounty Hunter Platform Team`
+            
+            Congratulations! Your bounty hunter registration has been approved.
+            
+            Your OTP for verification is: ${otp}
+            
+            This OTP will expire in 10 minutes. Please verify your account to complete the registration process.
+            
+            Admin Remarks: ${remarks}
+            
+            Verify here: https://bountyhunters.in/hunterLanding
+            
+            Best regards,
+            Bounty Hunter Platform Team`
             };
 
             try {
