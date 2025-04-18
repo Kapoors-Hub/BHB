@@ -208,6 +208,73 @@ const hunterQuizController = {
         }
     },
 
+    async getQuizAttempt(req, res) {
+        try {
+          const hunterId = req.hunter.id;
+          const { attemptId } = req.params;
+          
+          // Validate attempt ID format
+          if (!mongoose.Types.ObjectId.isValid(attemptId)) {
+            return res.status(400).json({
+              status: 400,
+              success: false,
+              message: 'Invalid attempt ID format'
+            });
+          }
+          
+          // Find the quiz attempt, ensuring it belongs to this hunter
+          const attempt = await QuizAttempt.findOne({
+            _id: attemptId,
+            hunter: hunterId
+          }).populate('quiz', 'title description totalQuestions timeDuration category');
+          
+          if (!attempt) {
+            return res.status(404).json({
+              status: 404,
+              success: false,
+              message: 'Quiz attempt not found or does not belong to you'
+            });
+          }
+          
+          // Format the response data
+          const attemptData = {
+            _id: attempt._id,
+            quiz: {
+              _id: attempt.quiz._id,
+              title: attempt.quiz.title,
+              description: attempt.quiz.description,
+              totalQuestions: attempt.quiz.totalQuestions,
+              timeDuration: attempt.quiz.timeDuration,
+              category: attempt.quiz.category
+            },
+            startedAt: attempt.startedAt,
+            completedAt: attempt.completedAt,
+            answers: attempt.answers,
+            score: attempt.score,
+            xpEarned: attempt.xpEarned,
+            status: attempt.completedAt ? 'completed' : 'in-progress',
+            timeRemaining: attempt.quiz.timeDuration && !attempt.completedAt ? 
+              Math.max(0, attempt.quiz.timeDuration - Math.floor((Date.now() - new Date(attempt.startedAt).getTime()) / 1000)) : 
+              null
+          };
+          
+          return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Quiz attempt retrieved successfully',
+            data: attemptData
+          });
+        } catch (error) {
+          console.error('Error in getQuizAttempt:', error);
+          return res.status(500).json({
+            status: 500,
+            success: false,
+            message: 'Error retrieving quiz attempt',
+            error: error.message
+          });
+        }
+      },
+
     // Get a single quiz by ID
     async getSingleQuiz(req, res) {
         try {

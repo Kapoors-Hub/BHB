@@ -63,7 +63,7 @@ router.get('/quizzes/:quizId', validateHunterToken, hunterQuizController.getSing
 router.post('/quizzes/:quizId/start', validateHunterToken, hunterQuizController.startQuiz);
 router.get('/quizzes/history', validateHunterToken, hunterQuizController.getQuizHistory);
 router.post('/quizzes/attempts/:quizAttemptId/complete', validateHunterToken, hunterQuizController.completeQuiz);
-
+router.get('/quiz-attempts/:attemptId', validateHunterToken, hunterQuizController.getQuizAttempt);
 // Passes
 // router.get('/passes', validateHunterToken, passController.getHunterPasses);
 // router.post('/passes/time-extension/:bountyId', validateHunterToken, passController.useTimeExtensionPass);

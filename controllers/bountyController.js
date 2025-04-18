@@ -44,9 +44,13 @@ const bountyController = {
             const uploadedAssets = req.files ? req.files.map(file => ({
                 fileName: file.originalname,
                 // Convert the server path to a URL path
-                fileUrl: `/filess/${file.filename}`, // Use file.filename, not file.path
+                fileUrl: file.path, // Use file.filename, not file.path
                 uploadedAt: new Date()
             })) : [];
+
+
+    
+    
     
             // Validate dates
             const currentDate = new Date();
